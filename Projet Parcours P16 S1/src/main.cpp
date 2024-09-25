@@ -1,150 +1,115 @@
-/*
-Projet: Le nom du script
-Equipe: Votre numero d'equipe
-Auteurs: Les membres auteurs du script
-Description: Breve description du script
-Date: Derniere date de modification
-*/
-
-/*
-Inclure les librairies de functions que vous voulez utiliser
-*/
 #include <LibRobus.h>
 #include <Arduino.h>
 
-/*
-Variables globales et defines
- -> defines...
- -> L'ensemble des fonctions y ont acces
-*/
-
-
-bool bumperArr;
-int vertpin = 53;
-int rougepin = 49;
-bool vert = false;
-bool rouge = false;
-int etat = 0; // = 0 arrêt 1 = avance 2 = recule 3 = TourneDroit 4 = TourneGauche
-int etatPast = 0;
+int etat = 0; // 0 = arrêt, 1 = avance, 2 = recule, 3 = tourne à droite, 4 = tourne à gauche
 float vitesse = 0.40;
+int maze[5][5] = { // 1 = mur, 0 = vide
+  {1, 1, 1, 1, 1},
+  {1, 0, 0, 0, 1},
+  {1, 0, 1, 0, 1},
+  {1, 0, 0, 0, 1},
+  {1, 1, 1, 1, 1}
+};
 
-/*
-Vos propres fonctions sont creees ici
-*/
+int posX = 1, posY = 1, direction = 0; // Position et direction initiales
+float distanceSeuil = 20.0; // Seuil de distance pour détecter un obstacle
 
-void beep(int count){
-  for(int i=0;i<count;i++){
-    AX_BuzzerON();
-    delay(100);
-    AX_BuzzerOFF();
-    delay(100);  
-  }
-  delay(400);
-}
-
-void arret(){
+void arret() {
   MOTOR_SetSpeed(RIGHT, 0);
   MOTOR_SetSpeed(LEFT, 0);
-};
-
-void avance(){
-  MOTOR_SetSpeed(RIGHT,vitesse);
-  MOTOR_SetSpeed(LEFT, vitesse);
-};
-
-void recule(){
-  MOTOR_SetSpeed(RIGHT, -0.5*vitesse);
-  MOTOR_SetSpeed(LEFT, -vitesse);
-};
-
-void tourneDroit(){
-  MOTOR_SetSpeed(RIGHT, 0.5*vitesse);
-  MOTOR_SetSpeed(LEFT, -0.5*vitesse);
-};
-
-void tourneGauche(){
-  MOTOR_SetSpeed(RIGHT, -0.5*vitesse);
-  MOTOR_SetSpeed(LEFT, 0.5*vitesse);
-};
-
-/*
-Fonctions d'initialisation (setup)
- -> Se fait appeler au debut du programme
- -> Se fait appeler seulement un fois
- -> Generalement on y initilise les varibbles globales
-*/
-void setup(){
-  BoardInit();
-  
-  //initialisation
-  pinMode(vertpin, INPUT);
-  pinMode(rougepin, INPUT);
-  delay(100);
-  beep(3);
 }
 
-/*
-Fonctions de boucle infini
- -> Se fait appeler perpetuellement suite au "setup"
-*/
-void loop() {
-  etatPast = etat;
-  bumperArr = ROBUS_IsBumper(3);
-  if (bumperArr){
-    if (etat == 0){
-      beep(2);
-      etat = 1;
-    } 
-    else{
-      beep(1);
-      etat = 0;
-    }
+void avance(int distance) {
+  MOTOR_SetSpeed(RIGHT, vitesse);
+  MOTOR_SetSpeed(LEFT, vitesse);
+  delay(distance);
+  arret();
+}
+
+void recule() {
+  MOTOR_SetSpeed(RIGHT, -vitesse);
+  MOTOR_SetSpeed(LEFT, -vitesse);
+  arret();
+}
+
+void tourneDroit() {
+  MOTOR_SetSpeed(RIGHT, 0.5 * vitesse);
+  MOTOR_SetSpeed(LEFT, -0.5 * vitesse);
+  delay(500); // Ajuste en fonction du besoin
+  direction = (direction + 1) % 4; // Mise à jour de la direction
+}
+
+void tourneGauche() {
+  MOTOR_SetSpeed(RIGHT, -0.5 * vitesse);
+  MOTOR_SetSpeed(LEFT, 0.5 * vitesse);
+  delay(500); // Ajuste en fonction du besoin
+  direction = (direction + 3) % 4; // Mise à jour de la direction (retour en arrière)
+}
+
+/// @brief Permets de vérifier si le robot peut avancer en fonction des murs et obstacles
+/// @return true si le robot peut avancer, false sinon
+bool canMoveForward() {
+  int nextX = posX, nextY = posY;
+
+  if (direction == 0) {
+    nextY++;
   }
-  
-  vert = digitalRead(vertpin);
-  rouge = digitalRead(rougepin);
-  if (etat > 0){
-    if (vert && rouge){ // aucun obstacle => avance
-      etat = 1;
-    }
-    if (!vert && !rouge){  // obstacle devant => recule
-      etat = 2;
-    }
-    if (!vert && rouge){ // obstacle à gauche => tourne droit
-        etat = 3;
-      }
-    if (vert && !rouge){ // obstacle à droite => tourne gauche
-        etat = 4;
-    }
+  else if (direction == 1) {
+    nextX++;
+  }
+  else if (direction == 2) {
+    nextY--;
+  }
+  else if (direction == 3){
+    nextX--;
   }
 
-  if (etatPast != etat){
-    arret();
-    delay(50);
+  if (nextX < 0 || nextX > 4 || nextY < 0 || nextY > 4) {
+    return false; // Hors labyrinthe
   }
-  else{
-    switch (etat)
-    {
-    case 0:
-      arret();
-      break;
-    case 1:
-      avance();
-      break;
-    case 2:
-      recule();
-      break;
-    case 3:
-      tourneDroit();
-      break;
-    case 4:
-      tourneGauche();
-      break;            
-    default:
-      avance();
-      etat = 1;
-    break;
+
+  return (maze[nextX][nextY] == 0); // Vérifie s'il y a un mur ou non
+}
+
+bool isObstacleDetected() {
+  float distance = SONAR_GetRange(0);
+  if (distance < distanceSeuil) {
+    return true;
+  }
+  return false;
+}
+
+void updatePosition() {
+  if (direction == 0){
+    posY++;
+  } 
+  else if (direction == 1) {
+    posX++;
+  }
+  else if (direction == 2) {
+    posY--;
+  }
+  else if (direction == 3){
+    posX--;
+  }
+}
+
+void setup() {
+  BoardInit();
+}
+
+void loop() {
+if (etat == 0 && canMoveForward()) {
+    if (!isObstacleDetected()) {
+      avance(500);
+      updatePosition(); 
+    } else {
+      etat = 2;
     }
+  } else {
+    recule();
+    tourneDroit();
   }
+
   delay(200);
 }
