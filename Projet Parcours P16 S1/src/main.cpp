@@ -26,9 +26,10 @@ void avance(int distance) {
   arret();
 }
 
-void recule() {
+void recule(int distance) {
   MOTOR_SetSpeed(RIGHT, -vitesse);
   MOTOR_SetSpeed(LEFT, -vitesse);
+  delay(distance);
   arret();
 }
 
@@ -99,16 +100,39 @@ void setup() {
 }
 
 void loop() {
-if (etat == 0 && canMoveForward()) {
-    if (!isObstacleDetected()) {
-      avance(500);
-      updatePosition(); 
-    } else {
-      etat = 2;
-    }
-  } else {
-    recule();
-    tourneDroit();
+  switch(etat) {
+    case 0: // Etat arrêt, vérification pour avancer
+      if (canMoveForward() && !isObstacleDetected()) {
+        avance(500);
+        updatePosition();
+        etat = 0;
+      } else {
+        etat = 1;
+      }
+      break;
+      
+    case 1: // Etat recul, obstacle détecté ou mur
+      recule(300);
+      etat = 2; // Tourner à droite après recul
+      break;
+      
+    case 2: // Etat tourne à droite
+      tourneDroit();
+      if (!canMoveForward() || isObstacleDetected()) {
+        etat = 3; // Si toujours bloqué, essaye à gauche
+      } else {
+        etat = 0; // Sinon continue à avancer
+      }
+      break;
+      
+    case 3: // Etat tourne à gauche après échec de tourner à droite
+      tourneGauche();
+      if (!canMoveForward() || isObstacleDetected()) {
+        etat = 1; // Si toujours bloqué, revient à reculer
+      } else {
+        etat = 0; // Sinon continue à avancer
+      }
+      break;
   }
 
   delay(200);
