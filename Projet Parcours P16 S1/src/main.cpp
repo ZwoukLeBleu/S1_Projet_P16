@@ -2,22 +2,16 @@
 #include <Arduino.h>
 
 int etat = 0; // 0 = arrêt, 1 = avance, 2 = recule, 3 = tourne à droite, 4 = tourne à gauche
-float vitesse = 0.40;
-int maze[10][5] = { // 1 = mur, 0 = vide
-{1,1,0,1,1},
-{1,0,0,0,1},
-{1,0,1,0,1},
-{1,0,0,0,1},
-{1,0,1,0,1},
-{1,0,0,0,1},
-{1,0,1,0,1},
-{1,0,0,0,1},
-{1,0,1,0,1},
-{1,1,1,1,1}
+float vitesse = 0.37;
+int maze[5][10] = { // 1 = mur, 0 = vide
+{0,0,0,0,1,0,0,0,0,0},
+{1,1,1,0,1,1,1,1,1,1},
+{1,1,1,0,1,1,1,1,1,1},
+{1,0,1,0,0,0,0,0,0,1},
+{1,1,1,1,1,1,1,1,1,1}
 };
 
-int posX = 3, posY = 1, direction = 0; // Position et direction initiales
-float distanceSeuil = 20.0; // Seuil de distance pour détecter un obstacle
+int posX = 0, posY = 0, direction = 1; // Position et direction initiales
 
 void arret() {
   MOTOR_SetSpeed(RIGHT, 0);
@@ -25,8 +19,8 @@ void arret() {
 }
 
 void avance(int distance) {
-  MOTOR_SetSpeed(RIGHT, vitesse);
-  MOTOR_SetSpeed(LEFT, vitesse);
+  MOTOR_SetSpeed(RIGHT, vitesse * 0.99);
+  MOTOR_SetSpeed(LEFT, vitesse * 1.03);
   delay(distance);
   arret();
 }
@@ -41,16 +35,18 @@ void recule(int distance) {
 void tourneDroit() {
   MOTOR_SetSpeed(RIGHT, 0.5 * vitesse);
   MOTOR_SetSpeed(LEFT, -0.5 * vitesse);
-  delay(500); // Ajuste en fonction du besoin
-  direction = (direction + 1) % 4; // Mise à jour de la direction
+  delay(500); 
+  direction = (direction + 4) % 4; 
 }
 
 void tourneGauche() {
   MOTOR_SetSpeed(RIGHT, -0.5 * vitesse);
   MOTOR_SetSpeed(LEFT, 0.5 * vitesse);
-  delay(500); // Ajuste en fonction du besoin
-  direction = (direction + 3) % 4; // Mise à jour de la direction (retour en arrière)
+  delay(500); 
+  direction = (direction + 3) % 4; 
 }
+
+
 
 /// @brief Permets de vérifier si le robot peut avancer en fonction des murs et obstacles
 /// @return true si le robot peut avancer, false sinon
@@ -60,45 +56,46 @@ bool canMoveForward() {
   if (direction == 0) {
     nextY++;
   }
-  else if (direction == 1) {
+  if (direction == 1) {
     nextX++;
   }
-  else if (direction == 2) {
+  if (direction == 2) {
     nextY--;
   }
-  else if (direction == 3){
+  if (direction == 3){
     nextX--;
   }
 
-  if (nextX < 0 || nextX > 4 || nextY < 0 || nextY > 4) {
+  if (nextX < 0 || nextX > 9 || nextY < 0 || nextY > 4) {
     return false; // Hors labyrinthe
   }
 
-  return (maze[nextX][nextY] == 0); // Vérifie s'il y a un mur ou non
-}
-
-bool isObstacleDetected() {
-  float distance = SONAR_GetRange(0);
-  if (distance < distanceSeuil) {
-    return true;
+  if (maze[nextY][nextX] == 1) {
+    return false; // Mur
   }
-  return false;
+
+  return true; // erreur here **
 }
 
 void updatePosition() {
-  if (direction == 0){
+  if (direction == 0) {
     posY++;
-  } 
-  else if (direction == 1) {
+  } else if (direction == 1) {
     posX++;
-  }
-  else if (direction == 2) {
+  } else if (direction == 2) {
     posY--;
-  }
-  else if (direction == 3){
+  } else if (direction == 3) {
     posX--;
   }
+  
+  Serial.print("Position: (");
+  Serial.print(posX);
+  Serial.print(", ");
+  Serial.print(posY);
+  Serial.print(") Direction: ");
+  Serial.println(direction);
 }
+
 
 void setup() {
   BoardInit();
@@ -106,36 +103,35 @@ void setup() {
 
 void loop() {
   switch(etat) {
-    case 0: // Etat arrêt, vérification pour avancer
+    case 0: // Avancer
       if (canMoveForward()) {
-        avance(500);
+        avance(1000);
         updatePosition();
-        etat = 0;
       } else {
-        etat = 1;
+        etat = 1; // Reculer si bloqué
       }
       break;
       
-    case 1: // Etat recul, obstacle détecté ou mur
+    case 1: // Reculer
       recule(300);
-      etat = 2; // Tourner à droite après recul
+      etat = 2; // Tourner à droite après le recul
       break;
       
-    case 2: // Etat tourne à droite
+    case 2: // Tourner à droite
       tourneDroit();
-      if (!canMoveForward()) {
-        etat = 3; // Si toujours bloqué, essaye à gauche
+      if (canMoveForward()) {
+        etat = 0; // Avancer si possible
       } else {
-        etat = 0; // Sinon continue à avancer
+        etat = 3; // Sinon, tourner à gauche
       }
       break;
       
-    case 3: // Etat tourne à gauche après échec de tourner à droite
+    case 3: // Tourner à gauche
       tourneGauche();
-      if (!canMoveForward()) {
-        etat = 1; // Si toujours bloqué, revient à reculer
+      if (canMoveForward()) {
+        etat = 0; // Avancer si possible
       } else {
-        etat = 0; // Sinon continue à avancer
+        etat = 1; // Reculer si toujours bloqué
       }
       break;
   }
