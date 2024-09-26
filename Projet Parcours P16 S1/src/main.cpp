@@ -4,14 +4,14 @@
 int etat = 0; // 0 = arrêt, 1 = avance, 2 = recule, 3 = tourne à droite, 4 = tourne à gauche
 float vitesse = 0.37;
 int maze[5][10] = { // 1 = mur, 0 = vide
-{0,0,0,0,1,0,0,0,0,0},
-{1,1,1,0,1,1,1,1,1,1},
-{1,1,1,0,1,1,1,1,1,1},
-{1,0,1,0,0,0,0,0,0,1},
+{1,1,1,1,1,1,1,1,1,1},
+{1,1,1,1,1,1,1,1,1,1},
+{0,0,1,0,0,0,0,0,0,0},
+{1,0,0,0,1,1,1,1,1,1},
 {1,1,1,1,1,1,1,1,1,1}
 };
 
-int posX = 0, posY = 0, direction = 1; // Position et direction initiales
+int posX = 0, posY = 2, direction = 1; // Position et direction initiales
 
 void arret() {
   MOTOR_SetSpeed(RIGHT, 0);
@@ -36,14 +36,16 @@ void tourneDroit() {
   MOTOR_SetSpeed(RIGHT, 0.5 * vitesse);
   MOTOR_SetSpeed(LEFT, -0.5 * vitesse);
   delay(500); 
-  direction = (direction + 4) % 4; 
+  Serial.println("Tourne à droite");
+  direction = (direction + 3) % 4; 
 }
 
 void tourneGauche() {
   MOTOR_SetSpeed(RIGHT, -0.5 * vitesse);
   MOTOR_SetSpeed(LEFT, 0.5 * vitesse);
   delay(500); 
-  direction = (direction + 3) % 4; 
+  Serial.println("Tourne à gauche");
+  direction = (direction + 1) % 4; 
 }
 
 
@@ -71,6 +73,7 @@ bool canMoveForward() {
   }
 
   if (maze[nextY][nextX] == 1) {
+    Serial.println("Mur");
     return false; // Mur
   }
 
@@ -127,6 +130,7 @@ void loop() {
       break;
       
     case 3: // Tourner à gauche
+      tourneGauche();
       tourneGauche();
       if (canMoveForward()) {
         etat = 0; // Avancer si possible
