@@ -3,15 +3,18 @@
 
 int etat = 0; // 0 = arrêt, 1 = avance, 2 = recule, 3 = tourne à droite, 4 = tourne à gauche
 float vitesse = 0.37;
-int maze[5][10] = { // 1 = mur, 0 = vide
-{1,1,1,1,1,1,1,1,1,1},
-{1,1,1,1,1,1,1,1,1,1},
-{0,0,1,0,0,0,0,0,0,0},
-{1,0,0,0,1,1,1,1,1,1},
-{1,1,1,1,1,1,1,1,1,1}
+const int mazeX = 7, mazeY = 21;
+int maze[mazeX][mazeY] = { // 1 = mur, 0 = vide
+{1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+{1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+{1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1},
+{1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}, //debut - fin
+{1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1},
+{1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+{1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
 };
 
-int posX = 0, posY = 2, direction = 1; // Position et direction initiales
+int posX = 1, posY = 3, direction = 1; // Position et direction initiales
 
 void arret() {
   MOTOR_SetSpeed(RIGHT, 0);
@@ -22,7 +25,6 @@ void avance(int distance) {
   MOTOR_SetSpeed(RIGHT, vitesse * 0.99);
   MOTOR_SetSpeed(LEFT, vitesse * 1.03);
   delay(distance);
-  arret();
 }
 
 void recule(int distance) {
@@ -68,7 +70,7 @@ bool canMoveForward() {
     nextX--;
   }
 
-  if (nextX < 0 || nextX > 9 || nextY < 0 || nextY > 4) {
+  if (nextX < 0 || nextX > mazeY || nextY < 0 || nextY > mazeX) {
     return false; // Hors labyrinthe
   }
 
@@ -108,7 +110,7 @@ void loop() {
   switch(etat) {
     case 0: // Avancer
       if (canMoveForward()) {
-        avance(1000);
+        avance(850);
         updatePosition();
       } else {
         etat = 1; // Reculer si bloqué
