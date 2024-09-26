@@ -1,146 +1,204 @@
-#include <LibRobus.h>
+#include <stdio.h>
+#include <LibRobus.h> 
 #include <Arduino.h>
+#include <stdbool.h>
 
-int etat = 0; // 0 = arrêt, 1 = avance, 2 = recule, 3 = tourne à droite, 4 = tourne à gauche
-float vitesse = 0.37;
-const int mazeX = 7, mazeY = 21;
-int maze[mazeX][mazeY] = { // 1 = mur, 0 = vide
-{1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-{1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-{1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1},
-{1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}, //debut - fin
-{1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1},
-{1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-{1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
+#define MAZE_X 7
+#define MAZE_Y 21
+
+typedef struct {
+    int posX;
+    int posY;
+    int direction;
+    int etat;
+    float vitesse;
+} Robot;
+
+Robot robot;
+
+int maze[MAZE_X][MAZE_Y] = { // 1 = mur, 0 = vide
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}, //0,0 = gauche
+    {1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+    {1,0,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1},
+    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}, //debut - fin
+    {1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1},
+    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
 };
 
-int posX = 1, posY = 3, direction = 1; // Position et direction initiales
+void setupRobot(Robot* robot) {
+    robot->etat = 0;
+    robot->vitesse = 0.37;
+    robot->posX = 1;
+    robot->posY = 1;
+    robot->direction = 1;
+}
+
+void setup() {
+    setupRobot(&robot);
+    BoardInit();
+}
 
 void arret() {
   MOTOR_SetSpeed(RIGHT, 0);
   MOTOR_SetSpeed(LEFT, 0);
 }
 
-void avance(int distance) {
-  MOTOR_SetSpeed(RIGHT, vitesse * 0.99);
-  MOTOR_SetSpeed(LEFT, vitesse * 1.03);
+void avance(Robot* robot, int distance) {
+  Serial.println("Avance");
+  MOTOR_SetSpeed(RIGHT, robot->vitesse);
+  MOTOR_SetSpeed(LEFT, robot->vitesse);
   delay(distance);
 }
 
-void recule(int distance) {
-  MOTOR_SetSpeed(RIGHT, -vitesse);
-  MOTOR_SetSpeed(LEFT, -vitesse);
-  delay(distance);
+void recule(Robot* robot, int distance) {
+  Serial.println("Recule");
+  MOTOR_SetSpeed(RIGHT, robot->vitesse);
+  MOTOR_SetSpeed(LEFT, robot->vitesse);
+  delay(1000);
   arret();
 }
 
-void tourneDroit() {
-  MOTOR_SetSpeed(RIGHT, 0.5 * vitesse);
-  MOTOR_SetSpeed(LEFT, -0.5 * vitesse);
-  delay(500); 
+void tourneDroit(Robot* robot) {
   Serial.println("Tourne à droite");
-  direction = (direction + 3) % 4; 
+  MOTOR_SetSpeed(RIGHT, 0.5 * robot->vitesse);
+  MOTOR_SetSpeed(LEFT, -0.5 * robot->vitesse);
+  delay(1000);
+  robot->direction = (robot->direction + 1) % 4;
 }
 
-void tourneGauche() {
-  MOTOR_SetSpeed(RIGHT, -0.5 * vitesse);
-  MOTOR_SetSpeed(LEFT, 0.5 * vitesse);
-  delay(500); 
+void tourneGauche(Robot* robot) {
   Serial.println("Tourne à gauche");
-  direction = (direction + 1) % 4; 
+  MOTOR_SetSpeed(RIGHT, -0.5 * robot->vitesse);
+  MOTOR_SetSpeed(LEFT, 0.5 * robot->vitesse);
+  delay(1000);
+  robot->direction = (robot->direction + 3) % 4;
 }
 
+bool canMoveForward(Robot* robot) {
+  int nextX = robot->posX, nextY = robot->posY;
 
-
-/// @brief Permets de vérifier si le robot peut avancer en fonction des murs et obstacles
-/// @return true si le robot peut avancer, false sinon
-bool canMoveForward() {
-  int nextX = posX, nextY = posY;
-
-  if (direction == 0) {
-    nextY++;
-  }
-  if (direction == 1) {
-    nextX++;
-  }
-  if (direction == 2) {
-    nextY--;
-  }
-  if (direction == 3){
-    nextX--;
+  switch (robot->direction) {
+      case 0: nextY++; break;
+      case 1: nextX++; break;
+      case 2: nextY--; break;
+      case 3: nextX--; break;
   }
 
-  if (nextX < 0 || nextX > mazeY || nextY < 0 || nextY > mazeX) {
-    return false; // Hors labyrinthe
+  if (nextX < 0 || nextX >= MAZE_Y || nextY < 0 || nextY >= MAZE_X) {
+      return false; // Hors labyrinthe
   }
 
   if (maze[nextY][nextX] == 1) {
-    Serial.println("Mur");
-    return false; // Mur
+      return false; // Mur
   }
 
-  return true; // erreur here **
+  return true;
 }
 
-void updatePosition() {
-  if (direction == 0) {
-    posY++;
-  } else if (direction == 1) {
-    posX++;
-  } else if (direction == 2) {
-    posY--;
-  } else if (direction == 3) {
-    posX--;
+bool canTurnRight(Robot* robot) {
+  int nextX = robot->posX, nextY = robot->posY;
+  int newDirection = (robot->direction + 1) % 4;
+
+  switch (newDirection) {
+      case 0: nextY++; break;
+      case 1: nextX++; break;
+      case 2: nextY--; break;
+      case 3: nextX--; break;
   }
-  
+
+  if (nextX < 0 || nextX >= MAZE_Y || nextY < 0 || nextY >= MAZE_X) {
+      return false; // Hors labyrinthe
+  }
+
+  if (maze[nextY][nextX] == 1) {
+      return false; // Mur
+  }
+
+  return true;
+}
+
+bool canTurnLeft(Robot* robot) {
+  int nextX = robot->posX, nextY = robot->posY;
+  int newDirection = (robot->direction + 3) % 4;
+
+  switch (newDirection) {
+      case 0: nextY++; break;
+      case 1: nextX++; break;
+      case 2: nextY--; break;
+      case 3: nextX--; break;
+  }
+
+  if (nextX < 0 || nextX >= MAZE_Y || nextY < 0 || nextY >= MAZE_X) {
+      return false; // Hors labyrinthe
+  }
+
+  if (maze[nextY][nextX] == 1) {
+      return false; // Mur
+  }
+
+  return true;
+}
+
+void updatePosition(Robot* robot) {
+  switch (robot->direction) {
+    case 0: robot->posY++; break;
+    case 1: robot->posX++; break;
+    case 2: robot->posY--; break;
+    case 3: robot->posX--; break;
+  }
   Serial.print("Position: (");
-  Serial.print(posX);
+  Serial.print(robot->posX);
   Serial.print(", ");
-  Serial.print(posY);
+  Serial.print(robot->posY);
   Serial.print(") Direction: ");
-  Serial.println(direction);
-}
-
-
-void setup() {
-  BoardInit();
+  Serial.println(robot->direction);
 }
 
 void loop() {
-  switch(etat) {
+  switch(robot.etat) {
     case 0: // Avancer
-      if (canMoveForward()) {
-        avance(850);
-        updatePosition();
+      if (canMoveForward(&robot)) {
+          avance(&robot, 850);
+          updatePosition(&robot);
+      } else if (canTurnRight(&robot)) {
+          robot.etat = 2; // Tourner à droite si possible
+      } else if (canTurnLeft(&robot)) {
+          robot.etat = 3; // Tourner à gauche si possible
       } else {
-        etat = 1; // Reculer si bloqué
+          robot.etat = 1; // Reculer si bloqué
       }
-      break;
-      
+    break;
+        
     case 1: // Reculer
-      recule(300);
-      etat = 2; // Tourner à droite après le recul
-      break;
-      
+      recule(&robot, 300);
+      robot.etat = 2; // Tourner à droite après le recul
+    break;
+        
     case 2: // Tourner à droite
-      tourneDroit();
-      if (canMoveForward()) {
-        etat = 0; // Avancer si possible
+      tourneDroit(&robot);
+      if (canMoveForward(&robot)) {
+          robot.etat = 0; // Avancer si possible
+      } else if (canTurnRight(&robot)) {
+          robot.etat = 2; // Tourner à droite si possible
+      } else if (canTurnLeft(&robot)) {
+          robot.etat = 3; // Tourner à gauche si possible
       } else {
-        etat = 3; // Sinon, tourner à gauche
+          robot.etat = 1; // Reculer si toujours bloqué
       }
-      break;
-      
+    break;
+        
     case 3: // Tourner à gauche
-      tourneGauche();
-      tourneGauche();
-      if (canMoveForward()) {
-        etat = 0; // Avancer si possible
+      tourneGauche(&robot);
+      if (canMoveForward(&robot)) {
+          robot.etat = 0; // Avancer si possible
+      } else if (canTurnRight(&robot)) {
+          robot.etat = 2; // Tourner à droite si possible
+      } else if (canTurnLeft(&robot)) {
+          robot.etat = 3; // Tourner à gauche si possible
       } else {
-        etat = 1; // Reculer si toujours bloqué
+          robot.etat = 1; // Reculer si toujours bloqué
       }
-      break;
+    break;
   }
-
-  delay(200);
 }
