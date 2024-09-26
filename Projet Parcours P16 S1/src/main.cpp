@@ -3,15 +3,20 @@
 
 int etat = 0; // 0 = arrêt, 1 = avance, 2 = recule, 3 = tourne à droite, 4 = tourne à gauche
 float vitesse = 0.40;
-int maze[5][5] = { // 1 = mur, 0 = vide
-  {1, 1, 1, 1, 1},
-  {1, 0, 0, 0, 1},
-  {1, 0, 1, 0, 1},
-  {1, 0, 0, 0, 1},
-  {1, 1, 1, 1, 1}
+int maze[10][5] = { // 1 = mur, 0 = vide
+{1,1,0,1,1},
+{1,0,0,0,1},
+{1,0,1,0,1},
+{1,0,0,0,1},
+{1,0,1,0,1},
+{1,0,0,0,1},
+{1,0,1,0,1},
+{1,0,0,0,1},
+{1,0,1,0,1},
+{1,1,1,1,1}
 };
 
-int posX = 1, posY = 1, direction = 0; // Position et direction initiales
+int posX = 3, posY = 1, direction = 0; // Position et direction initiales
 float distanceSeuil = 20.0; // Seuil de distance pour détecter un obstacle
 
 void arret() {
@@ -102,7 +107,7 @@ void setup() {
 void loop() {
   switch(etat) {
     case 0: // Etat arrêt, vérification pour avancer
-      if (canMoveForward() && !isObstacleDetected()) {
+      if (canMoveForward()) {
         avance(500);
         updatePosition();
         etat = 0;
@@ -118,7 +123,7 @@ void loop() {
       
     case 2: // Etat tourne à droite
       tourneDroit();
-      if (!canMoveForward() || isObstacleDetected()) {
+      if (!canMoveForward()) {
         etat = 3; // Si toujours bloqué, essaye à gauche
       } else {
         etat = 0; // Sinon continue à avancer
@@ -127,7 +132,7 @@ void loop() {
       
     case 3: // Etat tourne à gauche après échec de tourner à droite
       tourneGauche();
-      if (!canMoveForward() || isObstacleDetected()) {
+      if (!canMoveForward()) {
         etat = 1; // Si toujours bloqué, revient à reculer
       } else {
         etat = 0; // Sinon continue à avancer
