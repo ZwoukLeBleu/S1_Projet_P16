@@ -15,6 +15,13 @@ typedef struct {
 } Robot;
 
 Robot robot;
+float Kp = 0.5; // Gain proportionnel
+float Ki = 0.0; // Gain intégral
+float Kd = 0.1; // Gain dérivé
+
+float errorSum = 0; // Somme des erreurs
+float lastError = 0; // Dernière erreur
+unsigned long lastTime = 0; // Temps pour calculer le delta
 
 int maze[MAZE_X][MAZE_Y] = { // 1 = mur, 0 = vide
     {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}, //0,0 = gauche
@@ -40,15 +47,26 @@ void setup() {
 }
 
 void arret() {
-  MOTOR_SetSpeed(RIGHT, 0);
-  MOTOR_SetSpeed(LEFT, 0);
+    MOTOR_SetSpeed(RIGHT, 0);
+    MOTOR_SetSpeed(LEFT, 0);
+    resetPID();
 }
 
 void avance(Robot* robot, int distance) {
-  Serial.println("Avance");
-  MOTOR_SetSpeed(RIGHT, robot->vitesse);
-  MOTOR_SetSpeed(LEFT, robot->vitesse);
-  delay(distance);
+    Serial.println("Avance");
+
+    float targetSpeed = robot->vitesse;
+    float currentSpeedLeft = ENCODER_Read(LEFT);
+    float currentSpeedRight = ENCODER_Read(RIGHT);
+
+    float adjustLeft = pid(targetSpeed, currentSpeedLeft);
+    float adjustRight = pid(targetSpeed, currentSpeedRight);
+
+    MOTOR_SetSpeed(LEFT, robot->vitesse + adjustLeft);
+    MOTOR_SetSpeed(RIGHT, robot->vitesse + adjustRight);
+
+    delay(distance);
+    arret();
 }
 
 void recule(Robot* robot, int distance) {
@@ -59,20 +77,29 @@ void recule(Robot* robot, int distance) {
   arret();
 }
 
+void resetPID() {
+    errorSum = 0;
+    lastError = 0;
+}
+
 void tourneDroit(Robot* robot) {
-  Serial.println("Tourne à droite");
-  MOTOR_SetSpeed(RIGHT, 0.5 * robot->vitesse);
-  MOTOR_SetSpeed(LEFT, -0.5 * robot->vitesse);
-  delay(1000);
-  robot->direction = (robot->direction + 1) % 4;
+    Serial.println("Tourne à droite");
+    resetPID();
+    MOTOR_SetSpeed(RIGHT, 0.5 * robot->vitesse);
+    MOTOR_SetSpeed(LEFT, -0.5 * robot->vitesse);
+    delay(1000);
+    arret();
+    robot->direction = (robot->direction + 1) % 4;
 }
 
 void tourneGauche(Robot* robot) {
-  Serial.println("Tourne à gauche");
-  MOTOR_SetSpeed(RIGHT, -0.5 * robot->vitesse);
-  MOTOR_SetSpeed(LEFT, 0.5 * robot->vitesse);
-  delay(1000);
-  robot->direction = (robot->direction + 3) % 4;
+    Serial.println("Tourne à gauche");
+    resetPID();
+    MOTOR_SetSpeed(RIGHT, -0.5 * robot->vitesse);
+    MOTOR_SetSpeed(LEFT, 0.5 * robot->vitesse);
+    delay(1000);
+    arret();
+    robot->direction = (robot->direction + 3) % 4;
 }
 
 bool canMoveForward(Robot* robot) {
@@ -92,7 +119,6 @@ bool canMoveForward(Robot* robot) {
   if (maze[nextY][nextX] == 1) {
       return false; // Mur
   }
-
   return true;
 }
 
@@ -114,7 +140,6 @@ bool canTurnRight(Robot* robot) {
   if (maze[nextY][nextX] == 1) {
       return false; // Mur
   }
-
   return true;
 }
 
@@ -136,7 +161,6 @@ bool canTurnLeft(Robot* robot) {
   if (maze[nextY][nextX] == 1) {
       return false; // Mur
   }
-
   return true;
 }
 
@@ -201,4 +225,26 @@ void loop() {
       }
     break;
   }
+}
+
+float pid(float targetSpeed, float currentSpeed) {
+    unsigned long now = millis();
+    float deltaTime = (now - lastTime) / 1000.0;
+    lastTime = now;
+
+    float error = targetSpeed - currentSpeed;
+
+    float Pout = Kp * error;
+
+    errorSum += error * deltaTime;
+    float Iout = Ki * errorSum;
+
+    float derivative = (error - lastError) / deltaTime;
+    float Dout = Kd * derivative;
+
+    lastError = error;
+
+    float output = Pout + Iout + Dout;
+
+    return output;
 }
