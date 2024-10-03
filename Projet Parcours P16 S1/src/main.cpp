@@ -4,6 +4,7 @@
 // Constantes pour les dimensions du labyrinthe
 #define MAZE_X 7
 #define MAZE_Y 21
+#define ROTOR_TARGET 3200
 
 bool visited[MAZE_X][MAZE_Y] = {false};
 
@@ -65,22 +66,22 @@ struct PIDController {
     PIDController() : Kp(0.001f), Ki(1.0f), sec(7000.0f), CT(50) {}
 } pidController;
 
-long PID(long previousTime, float targetSpeed) {
+long PID(long previousTime, float targetSpeed, int encodeurIndex) {
     float pid = 0;
     float error = 0;
     long currentTime = millis();
     unsigned int timeSample = currentTime - previousTime;
 
     if (timeSample >= pidController.CT) {
-        int encodeur_0 = ENCODER_Read(0);
-        int encodeur_1 = ENCODER_Read(1);
+        int encodeur = ENCODER_Read(encodeurIndex);
+        //int encodeur_1 = ENCODER_Read(1);
 
         Serial.print("Encodeur 0: ");
-        Serial.println(encodeur_0);
-        Serial.print("Encodeur 1: ");
-        Serial.println(encodeur_1);
+        Serial.println(encodeur);
+        //Serial.print("Encodeur 1: ");
+        //Serial.println(encodeur_1);
 
-        error = encodeur_0 - encodeur_1;
+        error = encodeur - ROTOR_TARGET;
         pid = (error * pidController.Kp) + ((error * pidController.Ki) / pidController.sec) + targetSpeed;
 
         Serial.print("Erreur: ");
@@ -90,7 +91,7 @@ long PID(long previousTime, float targetSpeed) {
 
         previousTime = currentTime;
 
-        MOTOR_SetSpeed(1, pid); 
+        MOTOR_SetSpeed(encodeurIndex, pid); 
     }
     return previousTime;
 }
@@ -155,7 +156,8 @@ void MoveForward(int distance) {
             MOTOR_SetSpeed(1, speed0);
         }
 
-        previousTime = PID(previousTime, speed0);
+        previousTime = PID(previousTime, speed0, 0);
+        previousTime = PID(previousTime, speed0, 1);
 
         if (ENCODER_Read(0) >= distanceCounts && ENCODER_Read(1) >= distanceCounts) {
             Stop();
