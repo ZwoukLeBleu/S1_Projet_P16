@@ -65,7 +65,7 @@ struct PIDController {
     PIDController() : Kp(0.001f), Ki(1.0f), sec(7000.0f), CT(50) {}
 } pidController;
 
-long PID(long previousTime, float targetSpeed) {
+long PID(long previousTime, float targetSpeed, int motor) {
     float pid = 0;
     float error = 0;
     long currentTime = millis();
@@ -80,7 +80,7 @@ long PID(long previousTime, float targetSpeed) {
         Serial.print("Encodeur 1: ");
         Serial.println(encodeur_1);
 
-        error = encodeur_0 - encodeur_1;
+        error = targetSpeed - pid;
         pid = (error * pidController.Kp) + ((error * pidController.Ki) / pidController.sec) + targetSpeed;
 
         Serial.print("Erreur: ");
@@ -90,11 +90,12 @@ long PID(long previousTime, float targetSpeed) {
 
         previousTime = currentTime;
 
-        MOTOR_SetSpeed(1, pid); 
+        MOTOR_SetSpeed(motor, pid); 
     }
     return previousTime;
 }
 
+/*
 void TurnLeft(int angle) {
     ENCODER_Reset(0);
     ENCODER_Reset(1);
@@ -134,8 +135,10 @@ void TurnRight(int angle) {
 void MoveForward(int distance) {
     ENCODER_Reset(0);
     ENCODER_Reset(1);
-    unsigned long previousTime = 0;
+    unsigned long previousTime0 = 0;
+    unsigned long previousTime1 = 0;
     float speed0 = 0.0f;
+    float speed1 = 0.0f;
     float targetSpeed = robot.speed;
     float distanceCounts = distance * 3200.0f / 24.0f;
 
@@ -145,17 +148,20 @@ void MoveForward(int distance) {
     float b = 0.0f;
 
     while (true) {
-        float encoderRatio = static_cast<float>(ENCODER_Read(0)) / distanceCounts;
+        float encoderRatio0 = static_cast<float>(ENCODER_Read(0)) / distanceCounts;
+        float encoderRatio1 = static_cast<float>(ENCODER_Read(1)) / distanceCounts;
 
         if (speed0 <= targetSpeed && encoderRatio <= 0.4f) {
             speed0 += 0.01f;
+            speed1 += 0.01f;
             speedMax = speed0;
             delay(5); 
             MOTOR_SetSpeed(0, speed0);
-            MOTOR_SetSpeed(1, speed0);
+            MOTOR_SetSpeed(1, speed1);
         }
 
-        previousTime = PID(previousTime, speed0);
+        previousTime0 = PID(previousTime0, speed0);
+        previousTime1 = PID(previousTime1, speed1);
 
         if (ENCODER_Read(0) >= distanceCounts && ENCODER_Read(1) >= distanceCounts) {
             Stop();
@@ -164,12 +170,13 @@ void MoveForward(int distance) {
             break;
         }
 
-        if (encoderRatio >= 0.6f) {
+        if (encoderRatio0 >= 0.6f) {
             a = (speedMin - speedMax) / (1.0f - 0.6f);
             b = speedMin - (a * 1.0f);
-            speed0 = a * encoderRatio + b;
+            speed0 = a * encoderRatio0 + b;
+            speed1 = a * encoderRatio1 + b;
             MOTOR_SetSpeed(0, speed0);
-            MOTOR_SetSpeed(1, speed0); 
+            MOTOR_SetSpeed(1, speed1); 
         }
     }
 }
@@ -242,6 +249,17 @@ void exploreMaze() {
         }
     }
 }
+*/
+void Forward() {
+    ENCODER_Reset(0);
+    ENCODER_Reset(1);
+    unsigned long previousTime0 = 0;
+    unsigned long previousTime1 = 0;
+    float targetSpeed = 0.5f;
+
+    previousTime0 = PID(previousTime0, targetSpeed, 0);
+    previousTime1 = PID(previousTime1, targetSpeed, 1);
+}
 
 void initRobot() {
     robot.pos = {1, 1};
@@ -262,5 +280,8 @@ void loop() {
         hasExplored = true;
     }
     */
-   MoveForward(50);
+   //MoveForward(50);
+
+   Forward();
+   delay(500);
 }
