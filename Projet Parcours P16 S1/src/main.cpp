@@ -1,250 +1,160 @@
-#include <stdio.h>
-#include <LibRobus.h> 
 #include <Arduino.h>
-#include <stdbool.h>
+#include <LibRobus.h>
 
 #define MAZE_X 7
 #define MAZE_Y 21
 
-typedef struct {
-    int posX;
-    int posY;
-    int direction;
-    int etat;
-    float vitesse;
-} Robot;
-
-Robot robot;
-float Kp = 0.5; // Gain proportionnel
-float Ki = 0.0; // Gain intégral
-float Kd = 0.1; // Gain dérivé
-
-float errorSum = 0; // Somme des erreurs
-float lastError = 0; // Dernière erreur
-unsigned long lastTime = 0; // Temps pour calculer le delta
-
-int maze[MAZE_X][MAZE_Y] = { // 1 = mur, 0 = vide
-    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}, //0,0 = gauche
-    {1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,0,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1},
-    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}, //debut - fin
-    {1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1},
-    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
+int maze[MAZE_X][MAZE_Y] = {
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    {1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1},
+    {1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 };
 
-void setupRobot(Robot* robot) {
-    robot->etat = 0;
-    robot->vitesse = 0.37;
-    robot->posX = 1;
-    robot->posY = 1;
-    robot->direction = 1;
-}
+struct Robot {
+    int x;           
+    int y;            
+    float speed;   
+    int direction;    // 0: Haut, 1: Droite, 2: Bas, 3: Gauche)
+};
+
+Robot robot = {1, 1, 0.7, 1};
+bool visited[MAZE_X][MAZE_Y] = {false};
 
 void setup() {
-    setupRobot(&robot);
     BoardInit();
 }
 
-void arret() {
-    MOTOR_SetSpeed(RIGHT, 0);
-    MOTOR_SetSpeed(LEFT, 0);
-    resetPID();
+void Stop() {
+    MOTOR_SetSpeed(0, 0);
+    MOTOR_SetSpeed(1, 0);
 }
 
-void avance(Robot* robot, int distance) {
-    Serial.println("Avance");
+long PID(long PreviousTime, float TargetSpeed) {
+    float pid = 0;
+    float Kp = 0.001;
+    float Ki = 1;
+    float Erreur = 0;
+    float sec = 7000;
+    unsigned int CT = 50;
+    long CurrentTime = millis();
+    unsigned int TimeSample = CurrentTime - PreviousTime;
 
-    float targetSpeed = robot->vitesse;
-    float currentSpeedLeft = ENCODER_Read(LEFT);
-    float currentSpeedRight = ENCODER_Read(RIGHT);
-
-    float adjustLeft = pid(targetSpeed, currentSpeedLeft);
-    float adjustRight = pid(targetSpeed, currentSpeedRight);
-
-    MOTOR_SetSpeed(LEFT, robot->vitesse + adjustLeft);
-    MOTOR_SetSpeed(RIGHT, robot->vitesse + adjustRight);
-
-    delay(distance);
-    arret();
+    if (TimeSample >= CT) {
+        int encodeur_0 = ENCODER_Read(0);
+        int encodeur_1 = ENCODER_Read(1);
+        Erreur = encodeur_0 - encodeur_1;
+        pid = (Erreur * Kp) + ((Erreur * Ki) / sec) + TargetSpeed;
+        PreviousTime = CurrentTime;
+        MOTOR_SetSpeed(1, pid);
+    }
+    return PreviousTime;
 }
 
-void recule(Robot* robot, int distance) {
-  Serial.println("Recule");
-  MOTOR_SetSpeed(RIGHT, robot->vitesse);
-  MOTOR_SetSpeed(LEFT, robot->vitesse);
-  delay(1000);
-  arret();
+void Left(int AngleG) {
+    ENCODER_Reset(0);
+    ENCODER_Reset(1);
+    AngleG = -AngleG;
+    MOTOR_SetSpeed(0, 0);
+    MOTOR_SetSpeed(1, 0.4);
+    unsigned int dm = ((120 * AngleG) / 360);
+    float cycle = (3200L * dm) / 23.9389;
+
+    while (ENCODER_Read(1) < cycle) {}
+    Stop();
 }
 
-void resetPID() {
-    errorSum = 0;
-    lastError = 0;
+void Right(int AngleD) {
+    ENCODER_Reset(0);
+    ENCODER_Reset(1);
+    MOTOR_SetSpeed(0, 0.4);
+    MOTOR_SetSpeed(1, 0);
+    unsigned int dm = ((120 * AngleD) / 360);
+    float cycle = (3200L * dm) / 23.9389;
+
+    while (ENCODER_Read(0) < cycle) {}
+    Stop();
 }
 
-void tourneDroit(Robot* robot) {
-    Serial.println("Tourne à droite");
-    resetPID();
-    MOTOR_SetSpeed(RIGHT, 0.5 * robot->vitesse);
-    MOTOR_SetSpeed(LEFT, -0.5 * robot->vitesse);
-    delay(1000);
-    arret();
-    robot->direction = (robot->direction + 1) % 4;
+void Backward(int DistanceR) {
+    MOTOR_SetSpeed(0, -0.34);
+    MOTOR_SetSpeed(1, -0.34);
+    while (ENCODER_Read(0) >= DistanceR && ENCODER_Read(1) >= DistanceR) {}
+    Stop();
 }
 
-void tourneGauche(Robot* robot) {
-    Serial.println("Tourne à gauche");
-    resetPID();
-    MOTOR_SetSpeed(RIGHT, -0.5 * robot->vitesse);
-    MOTOR_SetSpeed(LEFT, 0.5 * robot->vitesse);
-    delay(1000);
-    arret();
-    robot->direction = (robot->direction + 3) % 4;
+void Foward(int DistanceA) {
+    ENCODER_Reset(0);
+    ENCODER_Reset(1);
+    float PreviousTime = 0;
+    float speed0 = 0;
+    float speed1 = robot.speed;
+    float distance = DistanceA * 3200L / 24;
+
+    float speedMin = 0.2;
+    float speedMax = 0.5;
+    float a = 0;
+    float b = 0;
+
+    unsigned long startTime = millis();
+
+    while (true) {
+        if (speed0 < speed1 && (ENCODER_Read(0) / distance) <= 0.4) {
+            speed0 += 0.01;
+            MOTOR_SetSpeed(0, speed0);
+            MOTOR_SetSpeed(1, speed0);
+            delay(5);
+        } else {
+            if ((ENCODER_Read(0) / distance) >= 0.6) {
+                a = (speedMin - speedMax) / (1 - 0.6);
+                b = speedMin - (a * 1);
+                speed0 = (a * (ENCODER_Read(0) / distance) + b);
+                MOTOR_SetSpeed(0, speed0);
+                MOTOR_SetSpeed(1, speed0);
+            }
+        }
+
+        if (ENCODER_Read(0) >= distance && ENCODER_Read(1) >= distance) {
+            Stop();
+            break;
+        }
+    }
 }
 
-bool canMoveForward(Robot* robot) {
-  int nextX = robot->posX, nextY = robot->posY;
-
-  switch (robot->direction) {
-      case 0: nextY++; break;
-      case 1: nextX++; break;
-      case 2: nextY--; break;
-      case 3: nextX--; break;
-  }
-
-  if (nextX < 0 || nextX >= MAZE_Y || nextY < 0 || nextY >= MAZE_X) {
-      return false; // Hors labyrinthe
-  }
-
-  if (maze[nextY][nextX] == 1) {
-      return false; // Mur
-  }
-  return true;
+void moveTo(int newX, int newY) {
+    robot.x = newX;
+    robot.y = newY;
+    visited[newX][newY] = true;
 }
 
-bool canTurnRight(Robot* robot) {
-  int nextX = robot->posX, nextY = robot->posY;
-  int newDirection = (robot->direction + 1) % 4;
-
-  switch (newDirection) {
-      case 0: nextY++; break;
-      case 1: nextX++; break;
-      case 2: nextY--; break;
-      case 3: nextX--; break;
-  }
-
-  if (nextX < 0 || nextX >= MAZE_Y || nextY < 0 || nextY >= MAZE_X) {
-      return false; // Hors labyrinthe
-  }
-
-  if (maze[nextY][nextX] == 1) {
-      return false; // Mur
-  }
-  return true;
+bool canMove(int x, int y) {
+    return x >= 0 && x < MAZE_X && y >= 0 && y < MAZE_Y && maze[x][y] == 0 && !visited[x][y];
 }
 
-bool canTurnLeft(Robot* robot) {
-  int nextX = robot->posX, nextY = robot->posY;
-  int newDirection = (robot->direction + 3) % 4;
+void exploreMaze() {
+    int newX = robot.x, newY = robot.y;
+    
+    if (robot.direction == 0) newX--;
+    else if (robot.direction == 1) newY++; 
+    else if (robot.direction == 2) newX++; 
+    else if (robot.direction == 3) newY--; 
 
-  switch (newDirection) {
-      case 0: nextY++; break;
-      case 1: nextX++; break;
-      case 2: nextY--; break;
-      case 3: nextX--; break;
-  }
+    if (canMove(newX, newY)) {
+        Foward(10);
+        moveTo(newX, newY);
+        return;
+    }
 
-  if (nextX < 0 || nextX >= MAZE_Y || nextY < 0 || nextY >= MAZE_X) {
-      return false; // Hors labyrinthe
-  }
+    Right(90);
+    robot.direction = (robot.direction + 1) % 4;
 
-  if (maze[nextY][nextX] == 1) {
-      return false; // Mur
-  }
-  return true;
-}
-
-void updatePosition(Robot* robot) {
-  switch (robot->direction) {
-    case 0: robot->posY++; break;
-    case 1: robot->posX++; break;
-    case 2: robot->posY--; break;
-    case 3: robot->posX--; break;
-  }
-  Serial.print("Position: (");
-  Serial.print(robot->posX);
-  Serial.print(", ");
-  Serial.print(robot->posY);
-  Serial.print(") Direction: ");
-  Serial.println(robot->direction);
+    exploreMaze();
 }
 
 void loop() {
-  switch(robot.etat) {
-    case 0: // Avancer
-      if (canMoveForward(&robot)) {
-          avance(&robot, 850);
-          updatePosition(&robot);
-      } else if (canTurnRight(&robot)) {
-          robot.etat = 2; // Tourner à droite si possible
-      } else if (canTurnLeft(&robot)) {
-          robot.etat = 3; // Tourner à gauche si possible
-      } else {
-          robot.etat = 1; // Reculer si bloqué
-      }
-    break;
-        
-    case 1: // Reculer
-      recule(&robot, 300);
-      robot.etat = 2; // Tourner à droite après le recul
-    break;
-        
-    case 2: // Tourner à droite
-      tourneDroit(&robot);
-      if (canMoveForward(&robot)) {
-          robot.etat = 0; // Avancer si possible
-      } else if (canTurnRight(&robot)) {
-          robot.etat = 2; // Tourner à droite si possible
-      } else if (canTurnLeft(&robot)) {
-          robot.etat = 3; // Tourner à gauche si possible
-      } else {
-          robot.etat = 1; // Reculer si toujours bloqué
-      }
-    break;
-        
-    case 3: // Tourner à gauche
-      tourneGauche(&robot);
-      if (canMoveForward(&robot)) {
-          robot.etat = 0; // Avancer si possible
-      } else if (canTurnRight(&robot)) {
-          robot.etat = 2; // Tourner à droite si possible
-      } else if (canTurnLeft(&robot)) {
-          robot.etat = 3; // Tourner à gauche si possible
-      } else {
-          robot.etat = 1; // Reculer si toujours bloqué
-      }
-    break;
-  }
-}
-
-float pid(float targetSpeed, float currentSpeed) {
-    unsigned long now = millis();
-    float deltaTime = (now - lastTime) / 1000.0;
-    lastTime = now;
-
-    float error = targetSpeed - currentSpeed;
-
-    float Pout = Kp * error;
-
-    errorSum += error * deltaTime;
-    float Iout = Ki * errorSum;
-
-    float derivative = (error - lastError) / deltaTime;
-    float Dout = Kd * derivative;
-
-    lastError = error;
-
-    float output = Pout + Iout + Dout;
-
-    return output;
+    exploreMaze();
+    delay(500);
 }
