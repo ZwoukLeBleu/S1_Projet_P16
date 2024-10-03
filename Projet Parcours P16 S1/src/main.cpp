@@ -67,33 +67,32 @@ struct PIDController {
     PIDController() : Kp(0.001f), Ki(1.0f), Kd(0.01f), sec(7000.0f), CT(50) {}
 } pidController;
 
-long PID(long previousTime, float targetSpeed, int encodeurIndex) {
+long PID(long previousTime, float targetSpeed, int motor) {
     float pid = 0;
     float error = 0;
-    static float previousError = 0;
     long currentTime = millis();
     unsigned int timeSample = currentTime - previousTime;
 
     if (timeSample >= pidController.CT) {
-        int encoderMaster = ENCODER_Read(0);
+        int encodeur_0 = ENCODER_Read(0);
+        int encodeur_1 = ENCODER_Read(1);
 
-        Serial.print("Encoder Master: ");
-        Serial.println(encoderMaster);
+        Serial.print("Encodeur 0: ");
+        Serial.println(encodeur_0);
+        Serial.print("Encodeur 1: ");
+        Serial.println(encodeur_1);
 
-        error = encoderMaster - ROTOR_TARGET;
-        float derivative = pidController.Kd * (error - previousError) / timeSample;
-        pid = (error * pidController.Kp) + ((error * pidController.Ki) / pidController.sec) + derivative + targetSpeed;
+        error = targetSpeed - pid;
+        pid = (error * pidController.Kp) + ((error * pidController.Ki) / pidController.sec) + targetSpeed;
 
-        Serial.print("Error: ");
+        Serial.print("Erreur: ");
         Serial.println(error);
         Serial.print("PID: ");
         Serial.println(pid);
 
-        previousError = error;
         previousTime = currentTime;
 
-        MOTOR_SetSpeed(0, pid);
-        MOTOR_SetSpeed(1, pid); // Set the speed for the slave motor based on the master motor's PID
+        MOTOR_SetSpeed(motor, pid); 
     }
     return previousTime;
 }
@@ -248,11 +247,11 @@ void setup() {
 
 void loop() {
     static bool hasExplored = false;
-    /*
+    
     if (!hasExplored) {
         exploreMaze();
         hasExplored = true;
     }
-    */
-   MoveForward(50);
+    
+   //MoveForward(50);
 }
