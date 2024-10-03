@@ -65,22 +65,25 @@ struct PIDController {
     PIDController() : Kp(0.001f), Ki(1.0f), sec(7000.0f), CT(50) {}
 } pidController;
 
-long PID(long previousTime, float targetSpeed, int motor) {
+long PID(long previousTime, float targetSpeed, int motor1, int motor2) {
     float pid = 0;
     float error = 0;
     long currentTime = millis();
     unsigned int timeSample = currentTime - previousTime;
 
+    ENCODER_Reset(0);
+    ENCODER_Reset(1);
+
     if (timeSample >= pidController.CT) {
-        int encodeur_0 = ENCODER_Read(0);
-        int encodeur_1 = ENCODER_Read(1);
+        int encodeur_0 = ENCODER_Read(motor1);
+        int encodeur_1 = ENCODER_Read(motor2);
 
         Serial.print("Encodeur 0: ");
         Serial.println(encodeur_0);
         Serial.print("Encodeur 1: ");
         Serial.println(encodeur_1);
 
-        error = targetSpeed - pid;
+        error = encodeur_0 - encodeur_1;
         pid = (error * pidController.Kp) + ((error * pidController.Ki) / pidController.sec) + targetSpeed;
 
         Serial.print("Erreur: ");
@@ -90,9 +93,9 @@ long PID(long previousTime, float targetSpeed, int motor) {
 
         previousTime = currentTime;
 
-        MOTOR_SetSpeed(motor, pid); 
+        MOTOR_SetSpeed(motor1, pid);
     }
-    return previousTime;
+    return targetSpeed;
 }
 
 /*
@@ -257,8 +260,8 @@ void Forward() {
     unsigned long previousTime1 = 0;
     float targetSpeed = 0.5f;
 
-    previousTime0 = PID(previousTime0, targetSpeed, 0);
-    previousTime1 = PID(previousTime1, targetSpeed, 1);
+    previousTime0 = PID(previousTime0, targetSpeed, 0, 1);
+    previousTime1 = PID(previousTime1, targetSpeed, 1, 0);
 }
 
 void initRobot() {
@@ -282,6 +285,5 @@ void loop() {
     */
    //MoveForward(50);
 
-   Forward();
-   delay(500);
+    Forward();
 }
