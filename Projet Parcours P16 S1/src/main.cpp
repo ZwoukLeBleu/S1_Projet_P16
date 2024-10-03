@@ -4,18 +4,18 @@
 // Constantes pour les dimensions du labyrinthe
 #define MAZE_X 7
 #define MAZE_Y 21
-#define ROTOR_TARGET 3200
+#define ROTOR_TARGET 1000
 
 bool visited[MAZE_X][MAZE_Y] = {false};
 
 // Définition du labyrinthe : 1 = mur, 0 = espace libre
 const uint8_t maze[MAZE_X][MAZE_Y] = {
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1},
-    {1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0},
-    {1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1},
+    {1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 };
 
@@ -60,38 +60,40 @@ inline void Stop() {
 struct PIDController {
     const float Kp;
     const float Ki;
+    const float Kd;
     const float sec;
     const unsigned int CT;
     
-    PIDController() : Kp(0.001f), Ki(1.0f), sec(7000.0f), CT(50) {}
+    PIDController() : Kp(0.001f), Ki(1.0f), Kd(0.01f), sec(7000.0f), CT(50) {}
 } pidController;
 
 long PID(long previousTime, float targetSpeed, int encodeurIndex) {
     float pid = 0;
     float error = 0;
+    static float previousError = 0;
     long currentTime = millis();
     unsigned int timeSample = currentTime - previousTime;
 
     if (timeSample >= pidController.CT) {
-        int encodeur = ENCODER_Read(encodeurIndex);
-        //int encodeur_1 = ENCODER_Read(1);
+        int encoderMaster = ENCODER_Read(0);
 
-        Serial.print("Encodeur 0: ");
-        Serial.println(encodeur);
-        //Serial.print("Encodeur 1: ");
-        //Serial.println(encodeur_1);
+        Serial.print("Encoder Master: ");
+        Serial.println(encoderMaster);
 
-        error = encodeur - ROTOR_TARGET;
-        pid = (error * pidController.Kp) + ((error * pidController.Ki) / pidController.sec) + targetSpeed;
+        error = encoderMaster - ROTOR_TARGET;
+        float derivative = pidController.Kd * (error - previousError) / timeSample;
+        pid = (error * pidController.Kp) + ((error * pidController.Ki) / pidController.sec) + derivative + targetSpeed;
 
-        Serial.print("Erreur: ");
+        Serial.print("Error: ");
         Serial.println(error);
         Serial.print("PID: ");
         Serial.println(pid);
 
+        previousError = error;
         previousTime = currentTime;
 
-        MOTOR_SetSpeed(encodeurIndex, pid); 
+        MOTOR_SetSpeed(0, pid);
+        MOTOR_SetSpeed(1, pid); // Set the speed for the slave motor based on the master motor's PID
     }
     return previousTime;
 }
@@ -136,28 +138,15 @@ void MoveForward(int distance) {
     ENCODER_Reset(0);
     ENCODER_Reset(1);
     unsigned long previousTime = 0;
-    float speed0 = 0.0f;
     float targetSpeed = robot.speed;
     float distanceCounts = distance * 3200.0f / 24.0f;
 
-    const float speedMin = 0.2f;
-    float speedMax = 0.0f;
-    float a = 0.0f;
-    float b = 0.0f;
+    const float Kp = 1.0f;
+    const float Ki = 0.1f;
+    const float Kd = 0.01f;
 
     while (true) {
-        float encoderRatio = static_cast<float>(ENCODER_Read(0)) / distanceCounts;
-
-        if (speed0 <= targetSpeed && encoderRatio <= 0.4f) {
-            speed0 += 0.01f;
-            speedMax = speed0;
-            delay(5); 
-            MOTOR_SetSpeed(0, speed0);
-            MOTOR_SetSpeed(1, speed0);
-        }
-
-        previousTime = PID(previousTime, speed0, 0);
-        previousTime = PID(previousTime, speed0, 1);
+        previousTime = PID(previousTime, targetSpeed, 0);
 
         if (ENCODER_Read(0) >= distanceCounts && ENCODER_Read(1) >= distanceCounts) {
             Stop();
@@ -165,15 +154,16 @@ void MoveForward(int distance) {
             ENCODER_Reset(1);
             break;
         }
+    }
 
-        if (encoderRatio >= 0.6f) {
+        /*if (encoderRatio >= 0.6f) {
             a = (speedMin - speedMax) / (1.0f - 0.6f);
             b = speedMin - (a * 1.0f);
             speed0 = a * encoderRatio + b;
             MOTOR_SetSpeed(0, speed0);
             MOTOR_SetSpeed(1, speed0); 
-        }
-    }
+        }*/
+    
 }
 
 inline void performMovement(const Movement& movement) {
@@ -222,7 +212,7 @@ void exploreMaze() {
             if (canMove(newPos.x, newPos.y)) {
                 Movement movement;
                 if (newDir == robot.direction) {
-                    movement = { Movement::FORWARD, 50 };
+                    movement = { Movement::FORWARD, 25 };
                 } else if ((newDir - robot.direction + 4) % 4 == 1) {
                     movement = { Movement::TURN_RIGHT, 90 };
                 } else if ((newDir - robot.direction + 4) % 4 == 3) {
@@ -248,7 +238,7 @@ void exploreMaze() {
 void initRobot() {
     robot.pos = {1, 1};
     robot.direction = DROITE;
-    robot.speed = 0.95f;
+    robot.speed = 0.55f;
 }
 
 void setup() {
