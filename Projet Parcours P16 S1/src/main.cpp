@@ -1,10 +1,11 @@
 #include <Arduino.h>
 #include <LibRobus.h>
+#include <math.h>
+#include <stdbool.h>
 
 // Constantes pour les dimensions du labyrinthe
 #define MAZE_X 7
 #define MAZE_Y 21
-#define PI 3.141592f
 #define WHEEL_DIAMETER 9.0f
 #define ENCODER_COUNT 3200
 #define PULSE_PER_CM ENCODER_COUNT / (PI * WHEEL_DIAMETER) *0.9f
@@ -75,6 +76,8 @@ int wallCheck() {
     } else if (red > IR_OFF && green > IR_OFF) {
         return 0; //False -> no wall ahead
     }
+    Serial.print("Wall Ahead : ");
+    Serial.println(red);
     return -1;
 }
 
@@ -105,19 +108,9 @@ long PID(long previousTime, float targetSpeed, int motor1, int motor2) {
         int encodeur_0 = ENCODER_Read(motor1);
         int encodeur_1 = ENCODER_Read(motor2);
 
-        /*Serial.print("Encodeur 0: ");
-        Serial.println(encodeur_0);
-        Serial.print("Encodeur 1: ");
-        Serial.println(encodeur_1);
-*/
         error = encodeur_0 - encodeur_1;
         pid = (error * pidController.Kp) + ((error * pidController.Ki) / pidController.sec) + targetSpeed;
-/*
-        Serial.print("Erreur: ");
-        Serial.println(error);
-        Serial.print("PID: ");
-        Serial.println(pid);
-*/
+
         previousTime = currentTime;
 
         MOTOR_SetSpeed(motor1, pid);
@@ -161,7 +154,7 @@ void MoveForward() {
     
     int encoder0 = 0;
     int encoder1 = 0;
-    while (true) {
+    while (true && analogRead(0) > IR_ON && analogRead(1) > IR_ON) {
         encoder0 = ENCODER_ReadReset(0);
         encoder1 = ENCODER_ReadReset(1);
         currentDistance += (encoder0 + encoder1) / (2.0f * PULSE_PER_CM);
@@ -178,7 +171,6 @@ void MoveForward() {
         if (wallCheck() == 1) {
             int nmbTiles = static_cast<int>(currentDistance / 25.0f);
             switch (robot.direction) {
-
                 case HAUT:    robot.pos.x -= nmbTiles; break;
                 case DROITE:  robot.pos.y += nmbTiles; break;
                 case BAS:     robot.pos.x += nmbTiles; break;
@@ -281,32 +273,14 @@ void exploreMaze() {
         for (uint8_t i = 0; i < 4; ++i) {
             uint8_t newDir = (robot.direction + i) % 4;
             Position newPos = robot.pos;
-            
-            
-            
+                      
             switch (newDir) {
                 case HAUT:    newPos.x -= 1; break;
                 case DROITE:  newPos.y += 1; break;
                 case BAS:     newPos.x += 1; break;
                 case GAUCHE:  newPos.y -= 1; break;
             }
-            if (wallCheck()== 1) {
-                maze[newPos.x][newPos.y] = 1;
-                Movement movement;
-                if ((newDir - robot.direction + 4) % 4 == 1) {
-                    movement = { Movement::TURN_RIGHT, 90 };
-                } else if ((newDir - robot.direction + 4) % 4 == 3) {
-                    movement = { Movement::TURN_LEFT, 90 };
-                } else {
-                    movement = { Movement::TURN_BACK, 0 };
-                }
-                performMovement(movement);
-                moveTo(newPos);
-                moved = true;
-                break;
-                
-            }
-            else if (canMove(newPos.x, newPos.y) == 1) {
+            if (canMove(newPos.x, newPos.y) == 1) {
                 Movement movement;
                 if (newDir == robot.direction) {
                     movement = { Movement::FORWARD };
@@ -342,7 +316,6 @@ void setup() {
     BoardInit();
     initRobot();
 }
-
 
 
 void loop() {
