@@ -8,10 +8,16 @@
 #define MAZE_Y 21
 #define WHEEL_DIAMETER 7.62f 
 #define ENCODER_COUNT 3200
-#define PULSE_PER_CM (ENCODER_COUNT / (PI * WHEEL_DIAMETER) * 0.83f)
+#define PULSE_PER_CM (ENCODER_COUNT / (PI * WHEEL_DIAMETER))
 #define TURN_PULSES 1925
 #define IR_OFF 900
 #define IR_ON 100
+#define PIN_RED A0
+#define PIN_GREEN A1
+#define PIN_AMBIENT A2
+#define PIN_5KHZ A3
+#define KHZ_5_ON -150
+#define KHZ_1_ON -170
 
 // Énumération pour les directions
 enum Direction {
@@ -59,6 +65,15 @@ uint8_t maze[MAZE_X][MAZE_Y] = {
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1} 
 };
+/*uint8_t maze[MAZE_X][MAZE_Y] = {
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    {1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1},
+    {1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0},
+    {1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+};*/
 
 // Struct pour l'état du PID
 struct PIDController {
@@ -77,6 +92,7 @@ struct PIDState {
 // Déclaration des fonctions
 void Stop();
 int wallCheck();
+int whistleCheck();
 void TurnBack();
 void initRobot();
 void exploreMaze();
@@ -121,7 +137,7 @@ inline void Stop() {
 
 // Fonction pour tourner à gauche
 void TurnLeft(int angle) {
-    ENCODER_Reset(0);
+    /*ENCODER_Reset(0);
     ENCODER_Reset(1);
 
     float targetSpeed = 0.2f;
@@ -139,12 +155,22 @@ void TurnLeft(int angle) {
     // Mise à jour de la direction
     robot.direction = static_cast<Direction>((robot.direction + 3) % 4);
     Serial.print("Direction après tourner à gauche : ");
-    Serial.println(robot.direction);
+    Serial.println(robot.direction);*/
+    ENCODER_Reset(0);
+    ENCODER_Reset(1);
+
+    MOTOR_SetSpeed(0, -0.2f); 
+    MOTOR_SetSpeed(1, 0.2f); 
+    while (ENCODER_Read(0) < TURN_PULSES && ENCODER_Read(1) < TURN_PULSES) { }
+    
+    Stop();
+
+    robot.direction = static_cast<Direction>((robot.direction + 3) % 4);
 }
 
 // Fonction pour tourner à droite
 void TurnRight(int angle) {
-    ENCODER_Reset(0);
+    /*ENCODER_Reset(0);
     ENCODER_Reset(1);
 
     float targetSpeed = 0.2f;
@@ -161,7 +187,16 @@ void TurnRight(int angle) {
 
     robot.direction = static_cast<Direction>((robot.direction + 1) % 4);
     Serial.print("Direction après tourner à droite : ");
-    Serial.println(robot.direction);
+    Serial.println(robot.direction);*/
+    ENCODER_Reset(0);
+    ENCODER_Reset(1);
+
+    MOTOR_SetSpeed(0, 0.2f); 
+    MOTOR_SetSpeed(1, -0.2f); 
+    while (ENCODER_Read(0) < TURN_PULSES && ENCODER_Read(1) < TURN_PULSES) { }
+    
+    Stop();
+    robot.direction = static_cast<Direction>((robot.direction + 1) % 4);
 }
 
 // Fonction pour tourner de 180 degrés
@@ -171,8 +206,8 @@ void TurnBack() {
 
 // Fonction pour vérifier la présence d'un mur
 int wallCheck() {
-    int red = analogRead(A0); 
-    int green = analogRead(A1);
+    int red = analogRead(0); 
+    int green = analogRead(1);
 
     if (red < IR_ON && green < IR_ON) {
         return 1; // Mur détecté
@@ -180,6 +215,11 @@ int wallCheck() {
         return 0; // Pas de mur
     }
     return -1; // Erreur
+}
+
+int whistleCheck(){
+    if(analogRead(PIN_5KHZ) - analogRead(PIN_AMBIENT) >= KHZ_5_ON){ return 1; }
+    return 0;
 }
 
 // Fonction pour afficher l'état du labyrinthe
@@ -245,35 +285,37 @@ void MoveForward() {
     float speedSlave = 0.0f;
 
     while (true) {
-        unsigned long currentTime = millis();
-        unsigned int deltaTime = currentTime - previousTime;
-
-        if (deltaTime >= pidController.CT) {
-            previousTime = computePID(previousTime, targetSpeed, 0, 1); // 0: moteur maître, 1: moteur esclave
-
-            int encoder0 = ENCODER_Read(0);
-            int encoder1 = ENCODER_Read(1);
-            float distance = (encoder0 + encoder1) / (2.0f * PULSE_PER_CM);
-            currentDistance += distance;
-
-            ENCODER_Reset(0);
-            ENCODER_Reset(1);
+        
+        int nbrTiles = 0;
+        if (currentDistance >= 25.0f) {
+            currentDistance -= 25.0f;
+            //nbrTiles++;
+            switch (robot.direction) {
+                    case HAUT:    robot.pos.x -= 1; break;
+                    case DROITE:  robot.pos.y += 1; break;
+                    case BAS:     robot.pos.x += 1; break;
+                    case GAUCHE:  robot.pos.y -= 1; break;
+                }
         }
+        Serial.print("Nouvelle position : (");
+        Serial.print(robot.pos.x);
+        Serial.print(", ");
+        Serial.print(robot.pos.y);
+        Serial.println(")");
+        Serial.println(maze[robot.pos.x][robot.pos.y]);
 
-        if (speedMaster < targetSpeed && speedSlave < targetSpeed) {
-            speedMaster += 0.01f;
-            speedSlave += 0.01f;
-            MOTOR_SetSpeed(0, speedMaster);
-            MOTOR_SetSpeed(1, speedSlave);
-        }
-
+        
         // Détection de mur
-        int wall = wallCheck();
-        if (wall == 1) { // Mur détecté
-            int nmbTiles = static_cast<int>((currentDistance - lastUpdateDistance) / 25.0f);
-
-            for (int i = 0; i < nmbTiles; ++i) {
-                Position newPos = robot.pos;
+        Position newPos = robot.pos;
+        if (maze[newPos.x][newPos.y] == 1){
+            Serial.println("Tape détecté");
+            Stop();
+            return;
+        }
+        if (wallCheck() == 1) { // Mur détecté
+            
+            for (int i = 0; i < nbrTiles; ++i) {
+                
                 switch (robot.direction) {
                     case HAUT:    newPos.x -= 1; break;
                     case DROITE:  newPos.y += 1; break;
@@ -308,14 +350,37 @@ void MoveForward() {
 
             lastUpdateDistance = currentDistance;  // Mise à jour de la distance pour calculer les cases traversées
 
-            Stop();
+            
+        }
+        
+        unsigned long currentTime = millis();
+        unsigned int deltaTime = currentTime - previousTime;
+
+        if (deltaTime >= pidController.CT) {
+            previousTime = computePID(previousTime, targetSpeed, 0, 1); // 0: moteur maître, 1: moteur esclave
+
+            int encoder0 = ENCODER_Read(0);
+            int encoder1 = ENCODER_Read(1);
+            float distance = (encoder0 + encoder1) / (2.0f * PULSE_PER_CM)*100*PI*2;
+            
+            currentDistance += distance;
+            Serial.print("Distance parcourue : ");
+            Serial.println(currentDistance);
+
             ENCODER_Reset(0);
             ENCODER_Reset(1);
-            break;
+        }
+
+        if (speedMaster < targetSpeed && speedSlave < targetSpeed) {
+            speedMaster += 0.01f;
+            speedSlave += 0.01f;
+            MOTOR_SetSpeed(0, speedMaster);
+            MOTOR_SetSpeed(1, speedSlave);
         }
 
         delay(50);
     }
+    
 }
 
 // Fonction pour l'exploration du labyrinthe avec backtracking
@@ -393,9 +458,9 @@ void exploreMaze() {
 
 // Initialise les paramètres du robot
 void initRobot() {
-    robot.pos = {1, 1}; // Position de départ
+    robot.pos = {3, 1}; // Position de départ
     robot.speed = 0.35f; // Vitesse cible
-    robot.direction = HAUT; // Direction initiale
+    robot.direction = DROITE; // Direction initiale
 }
 
 // Fonction du PID pour réguler la vitesse des moteurs
@@ -440,9 +505,11 @@ void setup() {
 
 // Boucle de fonctionnement principale
 void loop() {
-    static bool hasExplored = false;
-    if (!hasExplored) {
+    /*static bool hasExplored = false;
+    if (!hasExplored ) {//&& whistleCheck()
         exploreMaze();
         hasExplored = true;
-    }
+    }*/
+   //MoveForward();
+   //delay(10000);
 }
