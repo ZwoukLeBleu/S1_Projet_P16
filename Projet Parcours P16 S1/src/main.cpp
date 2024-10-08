@@ -11,7 +11,7 @@
 #define PULSE_PER_CM (ENCODER_COUNT / (PI * WHEEL_DIAMETER))
 #define TURN_PULSES 1925
 #define IR_OFF 900
-#define IR_ON 100
+#define IR_ON 200
 #define PIN_RED A0
 #define PIN_GREEN A1
 #define PIN_AMBIENT A2
@@ -130,7 +130,7 @@ struct Stack {
 } pathStack;
 
 // Fonction pour arrêter le robot
-inline void Stop() {
+inline void  Stop() {
     MOTOR_SetSpeed(0, 0);
     MOTOR_SetSpeed(1, 0);
 }
@@ -206,8 +206,8 @@ void TurnBack() {
 
 // Fonction pour vérifier la présence d'un mur
 int wallCheck() {
-    int red = analogRead(0); 
-    int green = analogRead(1);
+    int red = analogRead(PIN_RED); 
+    int green = analogRead(PIN_GREEN);
 
     if (red < IR_ON && green < IR_ON) {
         return 1; // Mur détecté
@@ -297,59 +297,56 @@ void MoveForward() {
                     case GAUCHE:  robot.pos.y -= 1; break;
                 }
         }
-        Serial.print("Nouvelle position : (");
+        /*Serial.print("Nouvelle position : (");
         Serial.print(robot.pos.x);
         Serial.print(", ");
         Serial.print(robot.pos.y);
         Serial.println(")");
-        Serial.println(maze[robot.pos.x][robot.pos.y]);
+        Serial.println(maze[robot.pos.x][robot.pos.y]);*/
 
         
         // Détection de mur
         Position newPos = robot.pos;
         if (maze[newPos.x][newPos.y] == 1){
             Serial.println("Tape détecté");
-            Stop();
+            
             return;
         }
         if (wallCheck() == 1) { // Mur détecté
             
-            for (int i = 0; i < nbrTiles; ++i) {
+            //for (int i = 0; i < nbrTiles; ++i) {
                 
-                switch (robot.direction) {
-                    case HAUT:    newPos.x -= 1; break;
-                    case DROITE:  newPos.y += 1; break;
-                    case BAS:     newPos.x += 1; break;
-                    case GAUCHE:  newPos.y -= 1; break;
-                }
+            /*switch (robot.direction) {
+                case HAUT:    newPos.x -= 1; break;
+                case DROITE:  newPos.y += 1; break;
+                case BAS:     newPos.x += 1; break;
+                case GAUCHE:  newPos.y -= 1; break;
+            }*/
 
-                // Vérifier les limites du labyrinthe
-                if (newPos.x < 0 || newPos.x >= MAZE_X || newPos.y < 0 || newPos.y >= MAZE_Y) {
-                    Serial.println("Overflow des bornes");
-                    Stop();
-                    return;
-                }
+            // Vérifier les limites du labyrinthe
+            /*if (newPos.x < 0 || newPos.x >= MAZE_X || newPos.y < 0 || newPos.y >= MAZE_Y) {
+                Serial.println("Overflow des bornes");
+                Stop();
+                return;
+            }*/
 
-                // Vérifier s'il y a un mur dans la nouvelle position
-                if (maze[newPos.x][newPos.y] == 1) {
-                    Serial.println("Mur détecté");
-                    Stop();
-                    return;
-                }
+            // Vérifier s'il y a un mur dans la nouvelle position
 
-                // Mettre à jour la position et marquer la case comme visitée
-                moveTo(newPos);
-                afficherLabyrinthe();
+            // Mettre à jour la position et marquer la case comme visitée
+            maze[newPos.x][newPos.y] = 1;
+            moveTo(newPos);
+            afficherLabyrinthe();
+            Stop();
 
-                Serial.print("Position mise à jour : (");
-                Serial.print(robot.pos.x);
-                Serial.print(", ");
-                Serial.print(robot.pos.y);
-                Serial.println(")");
-            }
+            Serial.print("Position mise à jour : (");
+            Serial.print(robot.pos.x);
+            Serial.print(", ");
+            Serial.print(robot.pos.y);
+            Serial.println(")");
+            //}
 
             lastUpdateDistance = currentDistance;  // Mise à jour de la distance pour calculer les cases traversées
-
+            break;
             
         }
         
@@ -364,8 +361,8 @@ void MoveForward() {
             float distance = (encoder0 + encoder1) / (2.0f * PULSE_PER_CM)*100*PI*2;
             
             currentDistance += distance;
-            Serial.print("Distance parcourue : ");
-            Serial.println(currentDistance);
+            //Serial.print("Distance parcourue : ");
+            //Serial.println(currentDistance);
 
             ENCODER_Reset(0);
             ENCODER_Reset(1);
@@ -505,11 +502,14 @@ void setup() {
 
 // Boucle de fonctionnement principale
 void loop() {
-    /*static bool hasExplored = false;
+    static bool hasExplored = false;
     if (!hasExplored ) {//&& whistleCheck()
         exploreMaze();
         hasExplored = true;
-    }*/
-   //MoveForward();
-   //delay(10000);
+    }
+   /*Serial.print("RED : ");
+    Serial.println(analogRead(PIN_RED));
+    Serial.print("GREEN : ");
+    Serial.println(analogRead(PIN_GREEN));*/
+    //Serial.println(wallCheck());
 }
