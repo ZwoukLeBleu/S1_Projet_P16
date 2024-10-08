@@ -6,34 +6,12 @@
 // Constantes pour les dimensions du labyrinthe
 #define MAZE_X 7
 #define MAZE_Y 21
-#define WHEEL_DIAMETER 9.0f
+#define WHEEL_DIAMETER 9.0f // en cm
 #define ENCODER_COUNT 3200
-#define PULSE_PER_CM ENCODER_COUNT / (PI * WHEEL_DIAMETER) *0.9f
+#define PULSE_PER_CM (ENCODER_COUNT / (PI * WHEEL_DIAMETER) * 0.9f)
 #define TURN_PULSES 1925
 #define IR_OFF 900
 #define IR_ON 100
-
-bool visited[MAZE_X][MAZE_Y] = {false};
-
-// Définition du labyrinthe : 1 = mur, 0 = espace libre
-/*uint8_t maze[MAZE_X][MAZE_Y] = {
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1},
-    {1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0},
-    {1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
-};*/
-uint8_t maze[MAZE_X][MAZE_Y] = {
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},//start     end
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
-};
 
 // Énumération pour les directions
 enum Direction {
@@ -45,8 +23,8 @@ enum Direction {
 
 // Struct pour représenter une position
 struct Position {
-    uint8_t x;
-    uint8_t y;
+    int x;
+    int y;
 };
 
 // Struct pour représenter le robot
@@ -54,7 +32,7 @@ struct Robot {
     float speed;
     Position pos;
     Direction direction;
-}robot;
+} robot;
 
 // Struct pour représenter un mouvement
 struct Movement {
@@ -64,34 +42,31 @@ struct Movement {
         TURN_RIGHT,
         TURN_BACK
     } type;
-    
+
     int value; // Distance en unités ou angle en degrés
 };
 
-int wallCheck() {
-    int red = analogRead(0);
-    int green = analogRead(1);
-    if (red < IR_ON && green < IR_ON) {
-        return 1; //True -> wall ahead
-    } else if (red > IR_OFF && green > IR_OFF) {
-        return 0; //False -> no wall ahead
-    }
-    Serial.print("Wall Ahead : ");
-    Serial.println(red);
-    return -1;
-}
+// Matrice de visite
+bool visited[MAZE_X][MAZE_Y] = {false};
 
-inline void Stop() {
-    MOTOR_SetSpeed(0, 0);
-    MOTOR_SetSpeed(1, 0);
-}
+// 1 = mur, 0 = espace libre
+uint8_t maze[MAZE_X][MAZE_Y] = {
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1} 
+};
 
+// Struct pour l'état du PID
 struct PIDController {
     const float Kp;
     const float Ki;
     const float sec;
     const unsigned int CT;
-    
+
     PIDController() : Kp(0.001f), Ki(1.0f), sec(7000.0f), CT(50) {}
 } pidController;
 
@@ -118,49 +93,139 @@ long PID(long previousTime, float targetSpeed, int motor1, int motor2) {
     return targetSpeed;
 }
 
+#define STACK_SIZE (MAZE_X * MAZE_Y)
 
-void TurnLeft(int angle) {
+struct Stack {
+    Position items[STACK_SIZE];
+    int top;
+
+    Stack() : top(-1) {}
+
+    bool isEmpty() const {
+        return top == -1;
+    }
+
+    bool push(const Position& pos) {
+        if (top >= STACK_SIZE - 1) return false; 
+        items[++top] = pos;
+        return true;
+    }
+
+    bool pop(Position& pos) {
+        if (isEmpty()) return false;
+        pos = items[top--];
+        return true;
+    }
+} pathStack;
+
+// Fonction pour arrêter le robot
+inline void Stop() {
+    MOTOR_SetSpeed(0, 0);
+    MOTOR_SetSpeed(1, 0);
+}
+
+// Fonction pour tourner à gauche
+void TurnLeft(int angle = 90) {
     ENCODER_Reset(0);
     ENCODER_Reset(1);
 
-    MOTOR_SetSpeed(0, -0.2f); 
-    MOTOR_SetSpeed(1, 0.2f); 
+    MOTOR_SetSpeed(0, -0.2f);
+    MOTOR_SetSpeed(1, 0.2f);
     while (ENCODER_Read(0) < TURN_PULSES && ENCODER_Read(1) < TURN_PULSES) { }
-    
     Stop();
 
     robot.direction = static_cast<Direction>((robot.direction + 3) % 4);
+    Serial.print("Direction après tourner à gauche : ");
+    Serial.println(robot.direction);
 }
 
-void TurnRight(int angle) {
+// Fonction pour tourner à droite
+void TurnRight(int angle = 90) {
     ENCODER_Reset(0);
     ENCODER_Reset(1);
 
-    MOTOR_SetSpeed(0, 0.2f); 
-    MOTOR_SetSpeed(1, -0.2f); 
+    MOTOR_SetSpeed(0, 0.2f);
+    MOTOR_SetSpeed(1, -0.2f);
     while (ENCODER_Read(0) < TURN_PULSES && ENCODER_Read(1) < TURN_PULSES) { }
-    
     Stop();
+
     robot.direction = static_cast<Direction>((robot.direction + 1) % 4);
+    Serial.print("Direction après tourner à droite : ");
+    Serial.println(robot.direction);
 }
 
+// Fonction pour tourner de 180 degrés
+void TurnBack() {
+    TurnLeft(180);
+    TurnLeft(180);
+}
+
+// Fonction pour vérifier la présence d'un mur
+int wallCheck() {
+    int red = analogRead(A0); 
+    int green = analogRead(A1);
+
+    if (red < IR_ON && green < IR_ON) {
+        return 1; // Mur détecté
+    } else if (red > IR_OFF && green > IR_OFF) {
+        return 0; // Pas de mur
+    }
+    return -1; // erreur x
+}
+
+void afficherLabyrinthe() {
+    Serial.println("État du labyrinthe :");
+    for (int i = 0; i < MAZE_X; ++i) {
+        for (int j = 0; j < MAZE_Y; ++j) {
+            if (robot.pos.x == i && robot.pos.y == j) {
+                Serial.print("R "); // R pour Robot
+            } else {
+                Serial.print(maze[i][j] == 1 ? "# " : ". "); // # pour mur, . pour espace libre
+            }
+        }
+        Serial.println();
+    }
+    Serial.println();
+}
+
+// Fonction pour avancer
 void MoveForward() {
     ENCODER_Reset(0);
     ENCODER_Reset(1);
+
+    float targetSpeed = robot.speed;
+    unsigned long previousTime = millis();
+
+    float currentDistance = 0.0f;
+    float lastUpdateDistance = 0.0f;
+
+    // Initial accélération
     float speed0 = 0.0f;
     float speed1 = 0.0f;
-    float targetSpeed = robot.speed;
-    float currentDistance = 0;
-    
-    int encoder0 = 0;
-    int encoder1 = 0;
-    while (true && analogRead(0) > IR_ON && analogRead(1) > IR_ON) {
-        encoder0 = ENCODER_ReadReset(0);
-        encoder1 = ENCODER_ReadReset(1);
-        currentDistance += (encoder0 + encoder1) / (2.0f * PULSE_PER_CM);
-        int t1 = PID(0, targetSpeed, 0, 1);
-        int t2 = PID(0, targetSpeed, 1, 0);
 
+    while (true) {
+        unsigned long currentTime = millis();
+        unsigned int deltaTime = currentTime - previousTime;
+
+        if (deltaTime >= pidController.CT) {
+            int encoder0 = ENCODER_Read(0);
+            int encoder1 = ENCODER_Read(1);
+
+            // Calcul de la distance parcourue
+            float distance = (encoder0 + encoder1) / (2.0f * PULSE_PER_CM);
+            currentDistance += distance;
+
+            PID(previousTime, targetSpeed, 0, 1);
+            PID(previousTime, targetSpeed, 1, 0);
+
+            previousTime = currentTime;
+
+            // Réinitialiser les encodeurs
+            ENCODER_Reset(0);
+            ENCODER_Reset(1);
+        }
+
+        // Accélération progressive
         if (speed0 < targetSpeed && speed1 < targetSpeed) {
             speed0 += 0.01f;
             speed1 += 0.01f;
@@ -168,77 +233,63 @@ void MoveForward() {
             MOTOR_SetSpeed(1, speed1);
         }
 
-        if (wallCheck() == 1) {
-            int nmbTiles = static_cast<int>(currentDistance / 25.0f);
-            switch (robot.direction) {
-                case HAUT:    robot.pos.x -= nmbTiles; break;
-                case DROITE:  robot.pos.y += nmbTiles; break;
-                case BAS:     robot.pos.x += nmbTiles; break;
-                case GAUCHE:  robot.pos.y -= nmbTiles; break;
+        // Détection de mur
+        int wall = wallCheck();
+        if (wall == 1) { // Mur détecté
+            int nmbTiles = static_cast<int>((currentDistance - lastUpdateDistance) / 25.0f);
+
+            for (int i = 0; i < nmbTiles; ++i) {
+                Position newPos = robot.pos;
+                switch (robot.direction) {
+                    case HAUT:    newPos.x -= 1; break;
+                    case DROITE:  newPos.y += 1; break;
+                    case BAS:     newPos.x += 1; break;
+                    case GAUCHE:  newPos.y -= 1; break;
+                }
+
+                // Vérifier les limites du labyrinthe
+                if (newPos.x < 0 || newPos.x >= MAZE_X || newPos.y < 0 || newPos.y >= MAZE_Y) {
+                    Serial.println("Overflow des bornes");
+                    Stop();
+                    return;
+                }
+
+                // Vérifier s'il y a un mur dans la nouvelle position
+                if (maze[newPos.x][newPos.y] == 1) {
+                    Serial.println("Mur détecté");
+                    Stop();
+                    return;
+                }
+
+                // Mettre à jour la position et marquer la case comme visitée
+                robot.pos = newPos;
+                visited[newPos.x][newPos.y] = true;
+                afficherLabyrinthe();
+
+                Serial.print("Position mise à jour : (");
+                Serial.print(robot.pos.x);
+                Serial.print(", ");
+                Serial.print(robot.pos.y);
+                Serial.println(")");
             }
-            Position nextPos = robot.pos;
-            switch (robot.direction) {
-                case HAUT:    nextPos.x -= 1; break;
-                case DROITE:  nextPos.y += 1; break;
-                case BAS:     nextPos.x += 1; break;
-                case GAUCHE:  nextPos.y -= 1; break;
-            }
-            maze[nextPos.x][nextPos.y] = 1; //
+
+            lastUpdateDistance += nmbTiles * 25.0f;
 
             Stop();
             ENCODER_Reset(0);
             ENCODER_Reset(1);
             break;
         }
+
         delay(5);
     }
 }
 
-/*void MoveForward(int distance) {
-    ENCODER_Reset(0);
-    ENCODER_Reset(1);
-    float speed0 = 0.0f;
-    float speed1 = 0.0f;
-    float targetSpeed = robot.speed;
-    float currentDistance = 0;
-    
-    int encoder0 = 0;
-    int encoder1 = 0;
-    while (true) {
-        encoder0 = ENCODER_ReadReset(0);
-        encoder1 = ENCODER_ReadReset(1);
-        currentDistance += (encoder0+encoder1) / (2.0f*PULSE_PER_CM);
-        int t1 = PID(0, targetSpeed, 0, 1);
-        int t2 = PID(0, targetSpeed, 1, 0);
-
-        if (speed0 < targetSpeed && speed1 < targetSpeed) {
-            speed0 += 0.01f;
-            speed1 += 0.01f;
-            MOTOR_SetSpeed(0, speed0);
-            MOTOR_SetSpeed(1, speed1);
-        }
-
-        if (currentDistance >= distance) {
-            Stop();
-            ENCODER_Reset(0);
-            ENCODER_Reset(1);
-            break;
-        }
-        Serial.print("Distance: ");
-        Serial.println(currentDistance);
-        Serial.print("Encoder 0: ");
-        Serial.println(encoder0);
-        Serial.print("Encoder 1: ");
-        Serial.println(encoder1);
-        delay(10);
-    }
-}*/
-
+// Fonction pour exécuter un mouvement
 inline void performMovement(const Movement& movement) {
-    delay(100);
+    delay(15);
     switch (movement.type) {
         case Movement::FORWARD:
-            //MoveForward(movement.value);
             MoveForward();
             break;
         case Movement::TURN_LEFT:
@@ -248,42 +299,43 @@ inline void performMovement(const Movement& movement) {
             TurnRight(movement.value);
             break;
         case Movement::TURN_BACK:
-            TurnLeft(180);
+            TurnBack();
             break;
     }
 }
 
-inline void moveTo(const Position& newPos) {
+// Met à jour la position du robot et marque la case comme visitée
+void moveTo(const Position& newPos) {
     robot.pos = newPos;
     visited[newPos.x][newPos.y] = true;
 }
 
-inline bool canMove(int x, int y) {
+// Vérifie si le robot peut se déplacer vers une position donnée
+bool canMove(int x, int y) {
     return x >= 0 && x < MAZE_X && y >= 0 && y < MAZE_Y &&
            maze[x][y] == 0 && !visited[x][y];
 }
 
-
+// Implémentation de l'exploration du labyrinthe avec backtracking
 void exploreMaze() {
     while (true) {
-        
         visited[robot.pos.x][robot.pos.y] = true;
         bool moved = false;
 
         for (uint8_t i = 0; i < 4; ++i) {
             uint8_t newDir = (robot.direction + i) % 4;
             Position newPos = robot.pos;
-                      
+
             switch (newDir) {
                 case HAUT:    newPos.x -= 1; break;
                 case DROITE:  newPos.y += 1; break;
                 case BAS:     newPos.x += 1; break;
                 case GAUCHE:  newPos.y -= 1; break;
             }
-            if (canMove(newPos.x, newPos.y) == 1) {
+            if (canMove(newPos.x, newPos.y)) {
                 Movement movement;
                 if (newDir == robot.direction) {
-                    movement = { Movement::FORWARD };
+                    movement = { Movement::FORWARD, 0 };
                 } else if ((newDir - robot.direction + 4) % 4 == 1) {
                     movement = { Movement::TURN_RIGHT, 90 };
                 } else if ((newDir - robot.direction + 4) % 4 == 3) {
@@ -294,29 +346,26 @@ void exploreMaze() {
 
                 performMovement(movement);
                 moveTo(newPos);
+                afficherLabyrinthe(); 
                 moved = true;
                 break;
             }
         }
-
-        if (!moved) {
-            Stop();
-            break;
-        }
     }
 }
 
+// Initialise les paramètres du robot
 void initRobot() {
-    robot.pos = {1, 1};
-    robot.direction = DROITE;
-    robot.speed = 0.35f;
+    robot.pos = {1, 1}; // Position de départ
+    robot.speed = 0.35f; // Vitesse cible
+    robot.direction = HAUT; // Direction initiale
 }
 
+// Configuration initiale
 void setup() {
-    BoardInit();
-    initRobot();
+    BoardInit();             // Initialiser le plateau de contrôle Robus
+    initRobot();             // Initialiser les paramètres du robot
 }
-
 
 void loop() {
     static bool hasExplored = false;
@@ -324,20 +373,4 @@ void loop() {
         exploreMaze();
         hasExplored = true;
     }
-    //analogRead(0);
-    /*Serial.print("RED: ");
-    Serial.println(analogRead(0)); 
-    Serial.print("GREEN: ");
-    Serial.println(analogRead(1)); 
-
-    delay(15);*/
-
-    //MoveForward(WHEEL_DIAMETER*PI);
-    //TurnRight(90);
-    //Forward(75);
-    //delay(1000);
-
-    //MOTOR_SetSpeed(0, 0.02f);
-    //ENCODER_Read(0);
-    //Serial.println(ENCODER_Read(0));
 }
