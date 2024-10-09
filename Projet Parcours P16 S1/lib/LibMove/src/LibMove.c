@@ -48,17 +48,17 @@ void FullStopNoJump()
 int WheelCalib(uint8_t ForceStatusReset)
 {
   static uint8_t status = 0;
-  static uint32_t LastTime = 0;
+  static unsigned long LastTime = 0;
   static int32_t EncoR = 0,EncoL = 0;
   float EncoRF, EncoLF;
   
   if(status == 0)
   {
-  LastTime = millis();
+  LastTime = micros();
   EncoR = abs(ENCODER_Read(RIGHT)), EncoL = abs(ENCODER_Read(LEFT));
   status = 1;
   }
-  else if((status == 1) && ((millis()-(200*MainMove.vitesse) >= LastTime)))
+  else if((status == 1) && ((micros()-(200000*MainMove.vitesse) >= LastTime)))
   {
   EncoRF = ((abs(ENCODER_Read(RIGHT)))-EncoR); 
   EncoLF = ((abs(ENCODER_Read(LEFT)))-EncoL);
