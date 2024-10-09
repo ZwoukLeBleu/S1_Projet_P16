@@ -142,7 +142,6 @@ void TurnLeft(int angle) {
 
     float targetSpeed = 0.2f;
     unsigned long previousTime = millis();
-
     long pulsesNeeded = (TURN_PULSES * angle) / 90;
 
     while ((ENCODER_Read(0) < pulsesNeeded) || (ENCODER_Read(1) < pulsesNeeded)) {
@@ -151,21 +150,27 @@ void TurnLeft(int angle) {
         MOTOR_SetSpeed(1, targetSpeed);
     }
     Stop();
-
     // Mise à jour de la direction
     robot.direction = static_cast<Direction>((robot.direction + 3) % 4);
     Serial.print("Direction après tourner à gauche : ");
     Serial.println(robot.direction);*/
+
+
     ENCODER_Reset(0);
     ENCODER_Reset(1);
 
     MOTOR_SetSpeed(0, -0.2f); 
     MOTOR_SetSpeed(1, 0.2f); 
-    while (ENCODER_Read(0) < TURN_PULSES && ENCODER_Read(1) < TURN_PULSES) { }
-    
-    Stop();
+    float multi = angle/90;
+    while (ENCODER_Read(0) < multi*TURN_PULSES && ENCODER_Read(1) < multi*TURN_PULSES) { }
 
     robot.direction = static_cast<Direction>((robot.direction + 3) % 4);
+
+    if(wallCheck()){
+        //TurnRight(180);
+    }
+    Stop();
+
 }
 
 // Fonction pour tourner à droite
@@ -193,10 +198,15 @@ void TurnRight(int angle) {
 
     MOTOR_SetSpeed(0, 0.2f); 
     MOTOR_SetSpeed(1, -0.2f); 
-    while (ENCODER_Read(0) < TURN_PULSES && ENCODER_Read(1) < TURN_PULSES) { }
-    
-    Stop();
+    float multi = angle/90;
+    while (ENCODER_Read(0) < multi*TURN_PULSES && ENCODER_Read(1) < multi*TURN_PULSES) { }
+
     robot.direction = static_cast<Direction>((robot.direction + 1) % 4);
+    if (wallCheck()){
+        //TurnLeft(180);
+    }
+    Stop();
+    
 }
 
 // Fonction pour tourner de 180 degrés
@@ -286,16 +296,18 @@ void MoveForward() {
 
     while (true) {
         
-        int nbrTiles = 0;
-        if (currentDistance >= 25.0f) {
-            currentDistance -= 25.0f;
+        //int nbrTiles = 0;
+        if (currentDistance >= 20.0f) {
+            currentDistance -= 20.0f;
             //nbrTiles++;
+            maze[robot.pos.x][robot.pos.y] = 1;
             switch (robot.direction) {
                     case HAUT:    robot.pos.x -= 1; break;
                     case DROITE:  robot.pos.y += 1; break;
                     case BAS:     robot.pos.x += 1; break;
                     case GAUCHE:  robot.pos.y -= 1; break;
                 }
+                    afficherLabyrinthe();
         }
         /*Serial.print("Nouvelle position : (");
         Serial.print(robot.pos.x);
@@ -307,21 +319,25 @@ void MoveForward() {
         
         // Détection de mur
         Position newPos = robot.pos;
+
+        switch (robot.direction) {
+                case HAUT:    newPos.x -= 1; break;
+                case DROITE:  newPos.y += 1; break;
+                case BAS:     newPos.x += 1; break;
+                case GAUCHE:  newPos.y -= 1; break;
+            }
+
         if (maze[newPos.x][newPos.y] == 1){
             Serial.println("Tape détecté");
             
-            return;
+            Stop();
+            break;
         }
         if (wallCheck() == 1) { // Mur détecté
             
             //for (int i = 0; i < nbrTiles; ++i) {
                 
-            /*switch (robot.direction) {
-                case HAUT:    newPos.x -= 1; break;
-                case DROITE:  newPos.y += 1; break;
-                case BAS:     newPos.x += 1; break;
-                case GAUCHE:  newPos.y -= 1; break;
-            }*/
+            
 
             // Vérifier les limites du labyrinthe
             /*if (newPos.x < 0 || newPos.x >= MAZE_X || newPos.y < 0 || newPos.y >= MAZE_Y) {
@@ -334,8 +350,7 @@ void MoveForward() {
 
             // Mettre à jour la position et marquer la case comme visitée
             maze[newPos.x][newPos.y] = 1;
-            moveTo(newPos);
-            afficherLabyrinthe();
+            moveTo(robot.pos);
             Stop();
 
             Serial.print("Position mise à jour : (");
@@ -378,6 +393,8 @@ void MoveForward() {
         delay(50);
     }
     
+
+    
 }
 
 // Fonction pour l'exploration du labyrinthe avec backtracking
@@ -400,17 +417,17 @@ void exploreMaze() {
             if (canMove(newPos.x, newPos.y)) {
                 Movement movement;
                 if (newDir == robot.direction) {
-                    movement = { Movement::FORWARD, 0 };
+                    movement = { Movement::FORWARD };
                 } else if ((newDir - robot.direction + 4) % 4 == 1) {
                     movement = { Movement::TURN_RIGHT, 90 };
                 } else if ((newDir - robot.direction + 4) % 4 == 3) {
                     movement = { Movement::TURN_LEFT, 90 };
                 } else {
-                    movement = { Movement::TURN_BACK, 0 };
+                    movement = { Movement::TURN_BACK };
                 }
 
                 performMovement(movement);
-                moveTo(newPos);
+                moveTo(robot.pos);
                 afficherLabyrinthe(); 
                 moved = true;
                 break;
@@ -502,14 +519,16 @@ void setup() {
 
 // Boucle de fonctionnement principale
 void loop() {
-    static bool hasExplored = false;
+    /*static bool hasExplored = false;
     if (!hasExplored ) {//&& whistleCheck()
         exploreMaze();
         hasExplored = true;
-    }
+    }*/
    /*Serial.print("RED : ");
     Serial.println(analogRead(PIN_RED));
     Serial.print("GREEN : ");
     Serial.println(analogRead(PIN_GREEN));*/
     //Serial.println(wallCheck());
+    MOTOR_SetSpeed(0, 0.9f);
+    MOTOR_SetSpeed(1, 0.9f);
 }
