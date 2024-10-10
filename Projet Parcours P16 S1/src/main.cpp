@@ -3,6 +3,10 @@
 #include <math.h>
 #include <stdbool.h>
 
+#define SERIAL_DEBUG 1
+
+
+
 // Constantes pour les dimensions du labyrinthe
 #define MAZE_X 7
 #define MAZE_Y 21
@@ -16,7 +20,7 @@
 #define PIN_GREEN A1
 #define PIN_AMBIENT A2
 #define PIN_5KHZ A3
-#define KHZ_5_ON -150
+#define KHZ_5_ON 0
 #define KHZ_1_ON -170
 
 // Énumération pour les directions
@@ -97,13 +101,16 @@ void TurnBack();
 void initRobot();
 void exploreMaze();
 void MoveForward();
-void afficherLabyrinthe();
 bool canMove(int x, int y);
 void TurnLeft(int angle = 90);
 void TurnRight(int angle = 90);
 void moveTo(const Position& newPos);
 inline void performMovement(const Movement& movement);
 long computePID(long previousTime, float targetSpeed, int motorMaster, int motorSlave);
+
+#if SERIAL_DEBUG
+void afficherLabyrinthe();
+#endif
 
 #define STACK_SIZE (MAZE_X * MAZE_Y)
 struct Stack {
@@ -221,10 +228,24 @@ int wallCheck() {
 }
 
 int whistleCheck(){
-    if(analogRead(PIN_5KHZ) - analogRead(PIN_AMBIENT) >= KHZ_5_ON){ return 1; }
+    if(analogRead(PIN_5KHZ) - analogRead(PIN_AMBIENT) >= KHZ_5_ON)
+    {
+        #if SERIAL_DEBUG
+        Serial.print("Anal Read pin 5k: ");Serial.println(analogRead(PIN_5KHZ),DEC);
+        Serial.print("Anal Read pin Amb: ");Serial.println(analogRead(PIN_AMBIENT),DEC);
+        #endif
+        return 1; 
+    }
+
+    #if SERIAL_DEBUG
+        Serial.print("Anal Read pin 5k: ");Serial.println(analogRead(PIN_5KHZ),DEC);
+        Serial.print("Anal Read pin Amb: ");Serial.println(analogRead(PIN_AMBIENT),DEC);
+    #endif
+
     return 0;
 }
 
+#if SERIAL_DEBUG
 // Fonction pour afficher l'état du labyrinthe
 void afficherLabyrinthe() {
     Serial.println("État du labyrinthe :");
@@ -240,6 +261,7 @@ void afficherLabyrinthe() {
     }
     Serial.println();
 }
+#endif
 
 // Fonction pour mettre à jour la position du robot et marquer la case comme visitée
 void moveTo(const Position& newPos) {
@@ -301,7 +323,7 @@ void MoveForward() {
                     case BAS:     robot.pos.x += 1; break;
                     case GAUCHE:  robot.pos.y -= 1; break;
                 }
-                    afficherLabyrinthe();
+                    //afficherLabyrinthe();
         }
         /*Serial.print("Nouvelle position : (");
         Serial.print(robot.pos.x);
@@ -321,7 +343,7 @@ void MoveForward() {
             }
 
         if (maze[newPos.x][newPos.y] == 1){
-            Serial.println("Tape détecté");
+            //Serial.println("Tape détecté");
             
             Stop();
             break;
@@ -341,11 +363,13 @@ void MoveForward() {
             moveTo(robot.pos);
             Stop();
 
+            #if SERIAL_DEBUG
             Serial.print("Position mise à jour : (");
             Serial.print(robot.pos.x);
             Serial.print(", ");
             Serial.print(robot.pos.y);
             Serial.println(")");
+            #endif
             //}
 
             lastUpdateDistance = currentDistance;  // Mise à jour de la distance pour calculer les cases traversées
@@ -412,7 +436,9 @@ void exploreMaze() {
 
                 performMovement(movement);
                 moveTo(robot.pos);
-                afficherLabyrinthe(); 
+                    #if SERIAL_DEBUG
+                        afficherLabyrinthe(); 
+                    #endif
                 moved = true;
                 break;
             }
@@ -444,7 +470,9 @@ void exploreMaze() {
 
                 performMovement({ Movement::FORWARD, 0 });
                 moveTo(backPos);
-                afficherLabyrinthe();
+                #if SERIAL_DEBUG
+                    afficherLabyrinthe(); 
+                #endif
             } else {
                 Serial.println("Exploration terminée ou impasse atteinte.");
                 Stop();
@@ -456,7 +484,7 @@ void exploreMaze() {
 
 // Initialise les paramètres du robot
 void initRobot() {
-    robot.pos = {3, 2}; // Position de départ
+    robot.pos = {3, 1}; // Position de départ
     robot.speed = 0.35f; // Vitesse cible
     robot.direction = DROITE; // Direction initiale
 }
@@ -498,13 +526,30 @@ long computePID(long previousTime, float targetSpeed, int motorMaster, int motor
 void setup() {
     BoardInit();              // Initialiser le plateau de contrôle Robus
     initRobot();              // Initialiser les paramètres du robot
-    afficherLabyrinthe();     // Afficher l'état initial du labyrinthe
+    while(!analogRead(PIN_5KHZ));
+
+    delay(1000);
+    
+    while(!whistleCheck()){delay(100);}    
+    
+    Serial.println("HERE%");
+   
+   while(1);
+    #if SERIAL_DEBUG
+
+
+        afficherLabyrinthe(); // Afficher l'état initial du labyrinthe
+    #endif     
 }
 
 // Boucle de fonctionnement principale
 void loop() {
+    
+    //while(1);//{whistleCheck();delay(500);}
+
+    
     static bool hasExplored = false;
-    if (!hasExplored ) {//&& whistleCheck()
+    if (!hasExplored ) {//whistleCheck();
         exploreMaze();
         hasExplored = true;
     }
