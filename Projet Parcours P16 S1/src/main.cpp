@@ -169,7 +169,7 @@ void TurnLeft(int angle) {
     if(wallCheck()){
         
         TurnRight(180);
-        robot.direction = static_cast<Direction>((robot.direction + 1) % 4);\
+        robot.direction = static_cast<Direction>((robot.direction + 1) % 4);
         moveTo(robot.pos);
     }
     Stop();
@@ -371,6 +371,7 @@ void MoveForward() {
             ENCODER_Reset(1);
         }
 
+        /**/
         if (speedMaster < targetSpeed && speedSlave < targetSpeed) {
             speedMaster += 0.01f;
             speedSlave += 0.01f;
@@ -403,9 +404,9 @@ void exploreMaze() {
                 if (newDir == robot.direction) {
                     movement = { Movement::FORWARD };
                 } else if ((newDir - robot.direction + 4) % 4 == 1) {
-                    movement = { Movement::TURN_RIGHT, 90 };
+                    movement = { Movement::TURN_RIGHT, 93 };
                 } else if ((newDir - robot.direction + 4) % 4 == 3) {
-                    movement = { Movement::TURN_LEFT, 90 };
+                    movement = { Movement::TURN_LEFT, 93 };
                 } else {
                     movement = { Movement::TURN_BACK };
                 }
