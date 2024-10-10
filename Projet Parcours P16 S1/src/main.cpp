@@ -371,14 +371,14 @@ void MoveForward() {
             ENCODER_Reset(1);
         }
 
-        /**/
+        
         if (speedMaster < targetSpeed && speedSlave < targetSpeed) {
             speedMaster += 0.01f;
             speedSlave += 0.01f;
             MOTOR_SetSpeed(0, speedMaster);
             MOTOR_SetSpeed(1, speedSlave);
         }
-        delay(50);
+        // delay(50);
     }
 }
 
@@ -404,7 +404,7 @@ void exploreMaze() {
                 if (newDir == robot.direction) {
                     movement = { Movement::FORWARD };
                 } else if ((newDir - robot.direction + 4) % 4 == 1) {
-                    movement = { Movement::TURN_RIGHT, 93 };
+                    movement = { Movement::TURN_RIGHT, 90 };
                 } else if ((newDir - robot.direction + 4) % 4 == 3) {
                     movement = { Movement::TURN_LEFT, 93 };
                 } else {
@@ -436,7 +436,7 @@ void exploreMaze() {
                 int turnDifference = (desiredDir - robot.direction + 4) % 4;
 
                 if (turnDifference == 1) {
-                    performMovement({ Movement::TURN_RIGHT, 93 });
+                    performMovement({ Movement::TURN_RIGHT, 90 });
                 } else if (turnDifference == 3) {
                     performMovement({ Movement::TURN_LEFT, 93 });
                 } else if (turnDifference == 2) {
