@@ -436,9 +436,9 @@ void exploreMaze() {
                 int turnDifference = (desiredDir - robot.direction + 4) % 4;
 
                 if (turnDifference == 1) {
-                    performMovement({ Movement::TURN_RIGHT, 90 });
+                    performMovement({ Movement::TURN_RIGHT, 93 });
                 } else if (turnDifference == 3) {
-                    performMovement({ Movement::TURN_LEFT, 90 });
+                    performMovement({ Movement::TURN_LEFT, 93 });
                 } else if (turnDifference == 2) {
                     performMovement({ Movement::TURN_BACK, 180 });
                 }
