@@ -1,12 +1,31 @@
+/*
+Projet: Imprimante
+Equipe: P16
+Auteurs: Arthur, BLAA8729
+Description: Fichier principale
+Date: 25 sept
+*/
+
+
 #include <Arduino.h>
 #include <LibRobus.h>
+#include <Arduino.h>
+#include <Robus\Robus.h>
+#include <math.h>
+#include <LibMove.h>
 #include <math.h>
 #include <stdbool.h>
 
+LIBMOVE_S MainMove;
 #define SERIAL_DEBUG 1
 
 
+void setup(){
+  BoardInit();
 
+  MainMove.ConstLF = 0;
+  MainMove.ConstRF = 0;
+  MainMove.vitesse = 0.4;
 // Constantes pour les dimensions du labyrinthe
 #define MAZE_X 7
 #define MAZE_Y 21
@@ -25,6 +44,11 @@
 #define TURN_VALUE_L 96
 #define TURN_VALUE_R 96
 
+  
+  //LibRobusInit(&MainMove);
+
+}
+
 // Énumération pour les directions
 enum Direction {
     HAUT = 0,
@@ -33,6 +57,40 @@ enum Direction {
     GAUCHE = 3
 };
 
+void loop() {
+if(ROBUS_IsBumper(REAR))
+{
+  delay(2000);
+  FowardSetDist(100);
+  delay(2000);
+  FowardSetDist(100);
+}
+else if (ROBUS_IsBumper(RIGHT))
+{
+  crank90deg(RIGHT);
+}
+else if (ROBUS_IsBumper(LEFT))
+{
+  crank90deg(LEFT);
+}
+else if (ROBUS_IsBumper(FRONT))
+{
+  while(1){
+  delay(1000);
+  FowardSetDist(15);
+  delay(1000);
+  crank90deg(LEFT);
+  delay(500);
+  crank90deg(LEFT);
+  delay(1000);
+  FowardSetDist(15);
+  delay(1000);
+  crank90deg(LEFT);
+  delay(500);
+  crank90deg(LEFT);
+  if(Robus_IsBumperALL()) break;
+  }
+  //FullSpeed(2000);
 // Struct pour représenter une position
 struct Position {
     int x;
@@ -46,6 +104,7 @@ struct Robot {
     Direction direction;
 } robot;
 
+}
 // Struct pour représenter un mouvement
 struct Movement {
     enum Type {
@@ -144,6 +203,8 @@ inline void  Stop() {
     MOTOR_SetSpeed(1, 0);
 }
 
+    //WheelCalib();
+  
 // Fonction pour tourner à gauche
 void TurnLeft(int angle) {
     /*ENCODER_Reset(0);
