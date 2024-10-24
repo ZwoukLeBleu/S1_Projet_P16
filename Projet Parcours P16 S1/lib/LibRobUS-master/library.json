@@ -1,0 +1,21 @@
+{
+    "name":"LibRobus",
+    "description":"Library for Université de Sherbrooke Robus robot",
+    "keywords":"robus",
+    "authors":
+    [
+      {
+        "name": "Jean-Samuel Lauzon",
+        "maintainer": true
+      },
+      {
+        "name": "Jonathan Vincent"
+      },
+      {
+        "name": "Serge Caron",
+        "maintainer": true
+      }
+  
+    ],
+    "version": "1.0.5"
+  }

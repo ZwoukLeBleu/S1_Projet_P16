@@ -22,6 +22,8 @@
 #define PIN_5KHZ A3
 #define KHZ_5_ON 0
 #define KHZ_1_ON -170
+#define TURN_VALUE_L 96
+#define TURN_VALUE_R 96
 
 // Énumération pour les directions
 enum Direction {
@@ -102,8 +104,8 @@ void initRobot();
 void exploreMaze();
 void MoveForward();
 bool canMove(int x, int y);
-void TurnLeft(int angle = 90);
-void TurnRight(int angle = 90);
+void TurnLeft(int angle);
+void TurnRight(int angle);
 void moveTo(const Position& newPos);
 inline void performMovement(const Movement& movement);
 long computePID(long previousTime, float targetSpeed, int motorMaster, int motorSlave);
@@ -169,14 +171,15 @@ void TurnLeft(int angle) {
     MOTOR_SetSpeed(0, -0.2f); 
     MOTOR_SetSpeed(1, 0.2f); 
     float multi = angle/90;
+    int test = static_cast<int>(multi);
     while (ENCODER_Read(0) < multi*TURN_PULSES && ENCODER_Read(1) < multi*TURN_PULSES) { }
 
-    robot.direction = static_cast<Direction>((robot.direction + 3) % 4);
-
+    robot.direction = static_cast<Direction>((robot.direction + 2 + test) % 4); //+3
+    //Serial.println(test);
     if(wallCheck()){
         
-        TurnRight(180);
-        robot.direction = static_cast<Direction>((robot.direction + 1) % 4);\
+        TurnRight(184);
+        //robot.direction = static_cast<Direction>((robot.direction + 1) % 4);
         moveTo(robot.pos);
     }
     Stop();
@@ -190,10 +193,11 @@ void TurnRight(int angle) {
 
     MOTOR_SetSpeed(0, 0.2f); 
     MOTOR_SetSpeed(1, -0.2f); 
-    float multi = angle/90;
+    float multi = angle/90.0f;
+    int test = static_cast<int>(multi);
     while (ENCODER_Read(0) < multi*TURN_PULSES && ENCODER_Read(1) < multi*TURN_PULSES) { }
 
-    robot.direction = static_cast<Direction>((robot.direction + 1) % 4);
+    robot.direction = static_cast<Direction>((robot.direction + test) % 4); //+1
     Position newPos = robot.pos;
     switch (robot.direction) {
                     case HAUT:    newPos.x -= 1; break;
@@ -202,8 +206,8 @@ void TurnRight(int angle) {
                     case GAUCHE:  newPos.y -= 1; break;
                 }
     if (wallCheck() == 1 || maze[newPos.x][newPos.y] == 1) {
-        robot.direction = static_cast<Direction>((robot.direction + 3) % 4);
-        TurnLeft(180);
+        //robot.direction = static_cast<Direction>((robot.direction + 3) % 4);
+        TurnLeft(184);
         moveTo(robot.pos);
     }
     Stop();
@@ -344,7 +348,14 @@ void MoveForward() {
 
         if (maze[newPos.x][newPos.y] == 1){
             //Serial.println("Tape détecté");
-            
+            if (newPos.x == 0){
+                TurnRight(TURN_VALUE_R);
+                moveTo(robot.pos);
+            }
+            if (newPos.x == MAZE_X - 1){
+                TurnLeft(TURN_VALUE_L);
+                moveTo(robot.pos);
+            }
             Stop();
             break;
         }
@@ -395,13 +406,14 @@ void MoveForward() {
             ENCODER_Reset(1);
         }
 
+        
         if (speedMaster < targetSpeed && speedSlave < targetSpeed) {
             speedMaster += 0.01f;
             speedSlave += 0.01f;
             MOTOR_SetSpeed(0, speedMaster);
             MOTOR_SetSpeed(1, speedSlave);
         }
-        delay(50);
+        // delay(50);
     }
 }
 
@@ -427,9 +439,9 @@ void exploreMaze() {
                 if (newDir == robot.direction) {
                     movement = { Movement::FORWARD };
                 } else if ((newDir - robot.direction + 4) % 4 == 1) {
-                    movement = { Movement::TURN_RIGHT, 90 };
+                    movement = { Movement::TURN_RIGHT, TURN_VALUE_R };
                 } else if ((newDir - robot.direction + 4) % 4 == 3) {
-                    movement = { Movement::TURN_LEFT, 90 };
+                    movement = { Movement::TURN_LEFT, TURN_VALUE_L};
                 } else {
                     movement = { Movement::TURN_BACK };
                 }
@@ -461,9 +473,9 @@ void exploreMaze() {
                 int turnDifference = (desiredDir - robot.direction + 4) % 4;
 
                 if (turnDifference == 1) {
-                    performMovement({ Movement::TURN_RIGHT, 90 });
+                    performMovement({ Movement::TURN_RIGHT, TURN_VALUE_R });
                 } else if (turnDifference == 3) {
-                    performMovement({ Movement::TURN_LEFT, 90 });
+                    performMovement({ Movement::TURN_LEFT, TURN_VALUE_L });
                 } else if (turnDifference == 2) {
                     performMovement({ Movement::TURN_BACK, 180 });
                 }
