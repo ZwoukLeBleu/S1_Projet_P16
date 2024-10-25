@@ -107,17 +107,10 @@ typedef struct{
 
 // Struct pour l'état du PID
 typedef struct PIDController {
-    const float Kp;
-    const float Ki;
-    const unsigned int CT;
+    float Kp;
+    float Ki;
+    unsigned int CT;
 } pidController_t;
-
-
-// Structure pour maintenir l'état du PID
-struct PIDState {
-    float integral;
-} pidState = {0.0f};
-
 
 
 // ================================================================================================

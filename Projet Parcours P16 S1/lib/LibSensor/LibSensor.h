@@ -20,6 +20,8 @@ WRITTEN PERMISSION OF TGE DEPARTMENT.
 #include "Arduino.h"
 #include "LibRobus.h"
 
+#define SERIAL_DEBUG 0
+
 // ================================================================================================
 // ================================================================================================
 //            DEFINE DECLARATION
@@ -57,6 +59,8 @@ WRITTEN PERMISSION OF TGE DEPARTMENT.
 
 int whistleCheck();
 int wallCheck();
+void initSensor();
+
 
 
 #endif /* LIBSENSOR_H_*/

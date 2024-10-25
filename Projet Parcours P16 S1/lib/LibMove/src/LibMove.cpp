@@ -14,7 +14,7 @@ extern ROBOT OurRobus;
 long computePID(long previousTime, float targetSpeed, int motorMaster, int motorSlave);
 
 //Structure locale pour le PID
-pidController_t pidController = {0};
+const pidController_t pidController = {0.002f,0.001f,50};
 
 
 // Initialise les paramètres du robot
@@ -23,9 +23,6 @@ void initRobot() {
     OurRobus.speed = 0.35f; // Vitesse cible
     OurRobus.direction = DROITE; // Direction initiale
     OurRobus.state = SCAN;
-
-
-
 }
 
 /*void beep(int count){
@@ -53,6 +50,7 @@ bool Robus_IsBumperALL(void)
 long computePID(long previousTime, float targetSpeed, int motorMaster, int motorSlave) {
     long currentTime = millis();
     unsigned int deltaTime = currentTime - previousTime;
+    static float pidError = 0;
 
     if (deltaTime >= pidController.CT) {
         // Lecture des encodeurs
@@ -63,10 +61,10 @@ long computePID(long previousTime, float targetSpeed, int motorMaster, int motor
         float error = encoderMaster - encoderSlave;
 
         // Accumulation de l'erreur intégrale
-        pidState.integral += error * (deltaTime / 1000.0f);
+        pidError += error * (deltaTime / 1000.0f);
 
         // Calcul de la sortie PID
-        float output = (pidController.Kp * error) + (pidController.Ki * pidState.integral) + targetSpeed;
+        float output = (pidController.Kp * error) + (pidController.Ki * pidError) + targetSpeed;
 
         // Régulation de la vitesse du moteur esclave
         MOTOR_SetSpeed(motorSlave, output);

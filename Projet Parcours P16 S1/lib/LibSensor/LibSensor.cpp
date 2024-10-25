@@ -52,6 +52,16 @@ WRITTEN PERMISSION OF TGE DEPARTMENT.
 // ================================================================================================
 // ================================================================================================
 
+//Init des broches du sifflet
+
+void initSensor(){
+    pinMode(PIN_5KHZ,INPUT);
+    pinMode(PIN_AMBIENT,INPUT);
+    pinMode(PIN_RED,INPUT);
+    pinMode(PIN_GREEN,INPUT);
+}
+
+
 // Fonction pour vérifier la présence d'un mur
 int wallCheck() {
     int red = analogRead(PIN_RED); 
