@@ -28,6 +28,7 @@
 #include <Arduino.h>
 #include "I2Cdev.h"
 #include "MPU6050_6Axis_MotionApps20.h"
+//#include "MPU6050.h"
 #include "LibRobus.h"
 //#include "MPU6050_6Axis_MotionApps612.h" // Uncomment this library to work with DMP 6.12 and comment on the above library.
 
@@ -179,11 +180,44 @@ void turnGyro(float angle){
       if (euler[0] < 0){ currentAngle = 360.0 + (euler[0]  * 180.0/M_PI); }
       else { currentAngle = euler[0] * 180.0/M_PI; }
   }
-  float targetAngle = currentAngle + angle;
-  if (targetAngle > 360.0) {targetAngle -= 360.0;}
+  MOTOR_SetSpeed(0, 0.08f); 
+  MOTOR_SetSpeed(1, -0.08f);
+
+  while (true){
+    if (mpu.dmpGetCurrentFIFOPacket(FIFOBuffer)) { 
+      mpu.dmpGetQuaternion(&q, FIFOBuffer);
+      mpu.dmpGetEuler(euler, &q);
+      if (euler[0] < 0){ currentAngle = 360.0 + (euler[0]  * 180.0/M_PI); }
+      else {currentAngle = euler[0] * 180.0/M_PI; } //curAngle = [0-360deg]
+
+
+      Serial.print("\nCurrent Angle: ");
+      Serial.println(currentAngle);
+      Serial.print("Requested Angle: ");
+      Serial.println(angle);
+ 
+      if (fabs(currentAngle - angle) <= 1.0){
+        break;
+      }
+      delay(5);
+    }
+    
   
+  }
+  MOTOR_SetSpeed(0, 0.0f);
+  MOTOR_SetSpeed(1, 0.0f);
+
+  /*float currentAngle;
+  if (mpu.dmpGetCurrentFIFOPacket(FIFOBuffer)) { 
+      mpu.dmpGetQuaternion(&q, FIFOBuffer);
+      mpu.dmpGetEuler(euler, &q);
+      if (euler[0] < 0){ currentAngle = 360.0 + (euler[0]  * 180.0/M_PI); }
+      else { currentAngle = euler[0] * 180.0/M_PI; }
+  }
 
   //angle += currentAngle;
+  float targetAngle = currentAngle + angle;
+  if (targetAngle > 360.0) { targetAngle -= 360.0; }
   
   MOTOR_SetSpeed(0, 0.1f); 
   MOTOR_SetSpeed(1, -0.1f);
@@ -193,28 +227,32 @@ void turnGyro(float angle){
     if (mpu.dmpGetCurrentFIFOPacket(FIFOBuffer)) { 
       mpu.dmpGetQuaternion(&q, FIFOBuffer);
       mpu.dmpGetEuler(euler, &q);
+      //int xRot = mpu.getRotationX();
+
+      //if (xRot < 0) { currentAngle = 360.0 + xRot; }
+      //else { currentAngle = xRot; }
       if (euler[0] < 0){ currentAngle = 360.0 + (euler[0]  * 180.0/M_PI); }
       else {currentAngle = euler[0] * 180.0/M_PI; } //curAngle = [0-360deg]
+
+
       Serial.print("\nCurrent Angle: ");
       Serial.println(currentAngle);
       Serial.print("Requested Angle: ");
       Serial.println(angle);
       Serial.print("Target Angle: ");
       Serial.println(targetAngle);
-      float diff = fabs(targetAngle - currentAngle);
-      Serial.print("Difference: ");
-      Serial.println(diff);
-      
-      if (diff < 1.0){
+ 
+      if (fabs(currentAngle - targetAngle) < 0.5){
         break;
       }
-      delay(10);
+      delay(5);
     }
     
   
   }
   MOTOR_SetSpeed(0, 0.0f);
-  MOTOR_SetSpeed(1, 0.0f);
+  MOTOR_SetSpeed(1, 0.0f);*/
+  
 }
 
 void loop() { 
@@ -227,6 +265,12 @@ void loop() {
   AX_BuzzerON(10000, 200);
   //if (!DMPReady) return; // Stop the program if DMP programming fails.
   turnGyro(89.0);
+  delay(500);
+  turnGyro(179.0);
+  delay(500);
+  turnGyro(269.0);
+  delay(500);
+  turnGyro(359.0);
   delay(1000);
 
   
